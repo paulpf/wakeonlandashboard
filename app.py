@@ -177,6 +177,9 @@ def startup():
     scheduler.add_job(_run_network_scan, "interval", seconds=300, id="net_scan")
     _rebuild_schedules()
     scheduler.start()
+    # Run initial status check to ensure devices have correct online/offline status on startup
+    print("▶ Running initial status check...")
+    _run_status_check()
     print(f"✓ APScheduler started with {len(scheduler.get_jobs())} job(s)")
 
 
