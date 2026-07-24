@@ -17,6 +17,27 @@ except Exception:
     _SCAPY = False
 
 
+def _is_valid_unicast(ip: str) -> bool:
+    """Check if IP is a valid unicast address (not broadcast, multicast, or reserved)."""
+    try:
+        addr = ipaddress.ip_address(ip)
+        # Exclude multicast (224.0.0.0 - 239.255.255.255)
+        if addr.is_multicast:
+            return False
+        # Exclude broadcast (255.255.255.255)
+        if ip == "255.255.255.255":
+            return False
+        # Exclude network address (x.x.x.0) and subnet broadcast (x.x.x.255)
+        octets = ip.split(".")
+        if len(octets) == 4:
+            last_octet = octets[3]
+            if last_octet in ("0", "255"):
+                return False
+        return True
+    except ValueError:
+        return False
+
+
 def _arping(network: str) -> list[dict]:
     """Run arp-scan, arp -a, or read /proc/net/arp to get MAC addresses."""
     hosts: list[dict] = []
@@ -37,7 +58,8 @@ def _arping(network: str) -> list[dict]:
                 vendor = parts[2].strip() if len(parts) > 2 else ""
                 try:
                     ipaddress.ip_address(ip)
-                    hosts.append({"ip": ip, "mac": mac, "hostname": "", "vendor": vendor})
+                    if _is_valid_unicast(ip):  # Filter out broadcast/multicast
+                        hosts.append({"ip": ip, "mac": mac, "hostname": "", "vendor": vendor})
                 except ValueError:
                     pass
         if hosts:
@@ -57,7 +79,7 @@ def _arping(network: str) -> list[dict]:
                         ip = parts[0].strip()
                         ipaddress.ip_address(ip)
                         mac = parts[1].strip().upper().replace("-", ":")
-                        if mac not in ("00:00:00:00:00:00", "") and len(mac) == 17:  # valid MAC
+                        if mac not in ("00:00:00:00:00:00", "") and len(mac) == 17 and _is_valid_unicast(ip):  # valid MAC and unicast
                             hosts.append({"ip": ip, "mac": mac, "hostname": "", "vendor": ""})
                     except (ValueError, IndexError):
                         pass
@@ -75,7 +97,7 @@ def _arping(network: str) -> list[dict]:
             if len(parts) >= 4:
                 ip = parts[0]
                 mac = parts[3].upper().replace("-", ":")
-                if mac not in ("00:00:00:00:00:00", ""):
+                if mac not in ("00:00:00:00:00:00", "") and _is_valid_unicast(ip):
                     hosts.append({"ip": ip, "mac": mac, "hostname": "", "vendor": ""})
         if hosts:
             return hosts
@@ -135,7 +157,8 @@ def _scan_single(network: str) -> list[dict]:
                     alive.append(futs[fut])
 
         for ip in sorted(alive, key=lambda x: ipaddress.ip_address(x)):
-            hosts.append({"ip": ip, "mac": "", "hostname": "", "vendor": ""})
+            if _is_valid_unicast(ip):  # Filter out broadcast/multicast
+                hosts.append({"ip": ip, "mac": "", "hostname": "", "vendor": ""})
 
     return hosts
 
