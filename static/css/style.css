@@ -923,6 +923,24 @@ a.service-pill:hover {
   color: var(--red);
   border-color: rgba(239, 68, 68, .25);
 }
+.sched-icon-btn.active {
+  background: rgba(34, 197, 94, .1);
+  border-color: rgba(34, 197, 94, .3);
+  color: rgb(34, 197, 94);
+}
+.sched-icon-btn.active:hover {
+  background: rgba(34, 197, 94, .2);
+  border-color: rgba(34, 197, 94, .5);
+}
+.sched-icon-btn.inactive {
+  background: rgba(239, 68, 68, .1);
+  border-color: rgba(239, 68, 68, .3);
+  color: rgb(239, 68, 68);
+}
+.sched-icon-btn.inactive:hover {
+  background: rgba(239, 68, 68, .2);
+  border-color: rgba(239, 68, 68, .5);
+}
 .sched-icon-btn svg {
   width: 11px;
   height: 11px;

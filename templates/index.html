@@ -549,7 +549,7 @@
   <div class="modal-content" style="width:min(90vw,500px)">
     <div class="modal-header">
       <h2>Zeitplan bearbeiten</h2>
-      <button class="modal-close" onclick="document.getElementById('modal-edit-schedule').style.display='none'" aria-label="Schließen">
+      <button class="modal-close" onclick="closeEditScheduleModal()" aria-label="Schließen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
@@ -558,18 +558,60 @@
     <div class="modal-body">
       <input type="hidden" id="edit-sched-id">
       <input type="hidden" id="edit-sched-device-id">
-      <div class="field-group">
-        <label class="field-label">Cron-Ausdruck</label>
-        <input class="input mono" id="edit-sched-cron" placeholder="z.B. 0 7 * * 1-5">
-        <div style="font-size:.75rem;color:var(--text-3);margin-top:4px">Format: Minute Stunde Tag Monat Wochentag</div>
-      </div>
-      <div class="field-group">
-        <label class="field-label">Bezeichnung</label>
-        <input class="input" id="edit-sched-label" placeholder="z.B. Büro-PC morgens">
+      
+      <!-- Cron Builder -->
+      <div class="sched-builder">
+        <div class="sched-row">
+          <span class="sched-label-text">Uhrzeit</span>
+          <div class="sched-time">
+            <select class="input sched-select" id="edit-sched-hour">
+              <!-- filled by JS -->
+            </select>
+            <span class="sched-colon">:</span>
+            <select class="input sched-select" id="edit-sched-minute">
+              <option value="0">00</option>
+              <option value="5">05</option>
+              <option value="10">10</option>
+              <option value="15">15</option>
+              <option value="20">20</option>
+              <option value="25">25</option>
+              <option value="30">30</option>
+              <option value="35">35</option>
+              <option value="40">40</option>
+              <option value="45">45</option>
+              <option value="50">50</option>
+              <option value="55">55</option>
+            </select>
+          </div>
+        </div>
+        <div class="sched-row">
+          <span class="sched-label-text">Tage</span>
+          <div class="sched-days">
+            <button type="button" class="sched-day-btn edit-sched-day-btn" data-day="1">Mo</button>
+            <button type="button" class="sched-day-btn edit-sched-day-btn" data-day="2">Di</button>
+            <button type="button" class="sched-day-btn edit-sched-day-btn" data-day="3">Mi</button>
+            <button type="button" class="sched-day-btn edit-sched-day-btn" data-day="4">Do</button>
+            <button type="button" class="sched-day-btn edit-sched-day-btn" data-day="5">Fr</button>
+            <button type="button" class="sched-day-btn edit-sched-day-btn" data-day="6">Sa</button>
+            <button type="button" class="sched-day-btn edit-sched-day-btn" data-day="0">So</button>
+          </div>
+        </div>
+        <div class="sched-row">
+          <span class="sched-label-text"></span>
+          <div class="sched-presets">
+            <button type="button" class="sched-preset-btn" onclick="schedPreset('daily','edit-sched')">Täglich</button>
+            <button type="button" class="sched-preset-btn" onclick="schedPreset('weekdays','edit-sched')">Mo–Fr</button>
+            <button type="button" class="sched-preset-btn" onclick="schedPreset('weekend','edit-sched')">Wochenende</button>
+          </div>
+        </div>
+        <div class="sched-row">
+          <span class="sched-label-text">Bezeichnung</span>
+          <input class="input" id="edit-sched-label" placeholder="z.B. Büro-PC morgens" style="flex:1">
+        </div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="document.getElementById('modal-edit-schedule').style.display='none'">Abbrechen</button>
+      <button class="btn btn-secondary" onclick="closeEditScheduleModal()">Abbrechen</button>
       <button class="btn btn-primary" onclick="saveScheduleEdit()">Speichern</button>
     </div>
   </div>
