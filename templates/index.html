@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WoL Dashboard</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f8ef7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'/></svg>">
+</head>
+<body>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">WoL Dashboard</div>
+      <div class="logo-sub">Wake-on-LAN</div>
+    </div>
+  </div>
+
+  <span class="nav-section-label">Navigation</span>
+  <ul class="nav-list">
+    <li class="nav-item active" data-page="dashboard" onclick="showPage('dashboard',this)">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </span>
+      <span>Dashboard</span>
+    </li>
+    <li class="nav-item" data-page="scan" onclick="showPage('scan',this)">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </span>
+      <span>Netz-Scan</span>
+    </li>
+    <li class="nav-item" data-page="history" onclick="showPage('history',this)">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </span>
+      <span>Verlauf</span>
+    </li>
+    <div class="sidebar-divider"></div>
+    <li class="nav-item" data-page="settings" onclick="showPage('settings',this)">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+          <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+        </svg>
+      </span>
+      <span>Einstellungen</span>
+    </li>
+  </ul>
+
+  <div class="sidebar-footer">
+    <span class="version-badge" id="version-badge">v1.0.0</span>
+    <button class="btn-icon" title="Theme umschalten" onclick="toggleTheme()">
+      <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2m0 16v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M2 12h2m16 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+    </button>
+  </div>
+</nav>
+
+<!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+<div class="main-content">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="page-title" id="page-title">Dashboard</span>
+      <span class="topbar-clock" id="topbar-clock"></span>
+    </div>
+    <div class="topbar-actions">
+      <span id="update-badge" class="update-badge hidden" onclick="showPage('settings',document.querySelector('[data-page=settings]'))">Update verfügbar</span>
+      <button class="btn btn-secondary btn-sm" onclick="refreshCurrent()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Aktualisieren
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══════════ PAGE: DASHBOARD ═══════════ -->
+  <section class="page active" id="page-dashboard">
+
+    <!-- Stat tiles -->
+    <div class="stat-row">
+      <div class="stat-tile">
+        <div class="stat-tile-header">
+          <span class="stat-label">Geräte gesamt</span>
+          <div class="stat-icon blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-value" id="stat-total">—</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile-header">
+          <span class="stat-label">Online</span>
+          <div class="stat-icon green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-value" id="stat-online">—</div>
+        <div class="stat-bar"><div class="stat-bar-fill" id="online-bar" style="width:0%"></div></div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile-header">
+          <span class="stat-label">Offline</span>
+          <div class="stat-icon red">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-value" id="stat-offline">—</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-tile-header">
+          <span class="stat-label">Mit Zeitplan</span>
+          <div class="stat-icon purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-value" id="stat-scheduled">—</div>
+      </div>
+    </div>
+
+    <!-- Bulk bar -->
+    <div id="bulk-bar" class="bulk-bar hidden">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;color:var(--blue);flex-shrink:0">
+        <rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/>
+      </svg>
+      <span><span class="bulk-count" id="bulk-count">0</span> Geräte ausgewählt</span>
+      <div style="flex:1"></div>
+      <button class="btn btn-blue btn-sm" onclick="bulkWake()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        Alle wecken
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="clearSelection()">Auswahl aufheben</button>
+    </div>
+
+    <!-- Filter row -->
+    <div class="filter-row">
+      <div class="search-wrap">
+        <span class="search-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </span>
+        <input class="input input-search" id="search-input" type="search" placeholder="Gerät suchen…" oninput="filterDevices()">
+      </div>
+      <div class="filter-tabs">
+        <button class="tab active" id="filter-all" onclick="setFilter('all',this)">Alle</button>
+        <button class="tab" id="filter-online" onclick="setFilter('online',this)">Online</button>
+        <button class="tab" id="filter-offline" onclick="setFilter('offline',this)">Offline</button>
+      </div>
+      <select class="select" id="group-filter" style="width:auto;min-width:130px" onchange="filterDevices()">
+        <option value="">Alle Gruppen</option>
+      </select>
+    </div>
+
+    <!-- Device grid -->
+    <div class="device-grid" id="device-grid">
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/>
+          </svg>
+        </div>
+        <div class="empty-title">Noch keine Geräte</div>
+        <div class="empty-text">Füge Geräte über den Netz-Scan hinzu oder klicke auf das + unten rechts.</div>
+        <button class="btn btn-primary" style="margin-top:8px" onclick="showPage('scan',document.querySelector('[data-page=scan]'))">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Netz scannen
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ PAGE: SCAN ═══════════ -->
+  <section class="page" id="page-scan">
+    <div class="scan-toolbar">
+      <button class="btn btn-primary" onclick="startScan()" id="scan-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        Scan starten
+      </button>
+      <span class="scan-status-text" id="scan-status">Bereit</span>
+      <div style="flex:1"></div>
+      <span id="scan-count" class="badge-trigger"></span>
+    </div>
+
+    <div class="table-wrapper">
+      <table class="data-table" id="scan-table">
+        <thead>
+          <tr>
+            <th style="width:36px">
+              <input type="checkbox" id="scan-check-all" onchange="toggleAllScan(this.checked)" style="accent-color:var(--blue)">
+            </th>
+            <th>IP-Adresse</th>
+            <th>MAC-Adresse</th>
+            <th>Hostname</th>
+            <th>Hersteller</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="scan-tbody">
+          <tr><td colspan="6" class="empty-cell">Noch kein Scan durchgeführt</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="scan-add-bar" id="scan-add-bar" style="display:none">
+      <button class="btn btn-primary" onclick="addSelectedFromScan()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        <span id="scan-add-count">0</span> Gerät(e) hinzufügen
+      </button>
+    </div>
+  </section>
+
+  <!-- ═══════════ PAGE: HISTORY ═══════════ -->
+  <section class="page" id="page-history">
+    <div class="history-toolbar">
+      <button class="btn btn-secondary btn-sm" onclick="loadHistory()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Aktualisieren
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="exportHistoryCsv()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        CSV Export
+      </button>
+      <div style="flex:1"></div>
+      <span id="history-count" class="badge-trigger"></span>
+    </div>
+
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Zeitpunkt</th>
+            <th>Gerät</th>
+            <th>MAC-Adresse</th>
+            <th>Auslöser</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="history-tbody">
+          <tr><td colspan="5" class="empty-cell">Noch kein Verlauf vorhanden</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════ PAGE: SETTINGS ═══════════ -->
+  <section class="page" id="page-settings">
+    <div class="settings-grid">
+
+      <!-- Network -->
+      <div class="card">
+        <div class="card-title">Netzwerk</div>
+        <div class="field-group">
+          <label class="field-label">Netzwerkbereich (CIDR)</label>
+          <input class="input" id="cfg-network" placeholder="192.168.1.0/24">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Broadcast-Adresse</label>
+          <input class="input" id="cfg-broadcast" placeholder="255.255.255.255">
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label">WoL-Port</label>
+            <input class="input" id="cfg-port" type="number" placeholder="9">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Status-Intervall (s)</label>
+            <input class="input" id="cfg-interval" type="number" placeholder="60">
+          </div>
+        </div>
+        <div style="padding-top:4px">
+          <button class="btn btn-primary" onclick="saveSettings()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Speichern
+          </button>
+        </div>
+      </div>
+
+      <!-- App -->
+      <div class="card">
+        <div class="card-title">Anwendung</div>
+        <div class="field-group">
+          <label class="field-label">GitHub Repository (user/repo)</label>
+          <input class="input" id="cfg-repo" placeholder="username/wakeonlandashboard">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Browser-Benachrichtigungen</label>
+          <button class="btn btn-secondary btn-sm" onclick="requestNotifPerm()" style="align-self:flex-start">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            Berechtigung anfordern
+          </button>
+        </div>
+      </div>
+
+      <!-- Import/Export -->
+      <div class="card">
+        <div class="card-title">Import / Export</div>
+        <p style="font-size:.78rem;color:var(--text-3);line-height:1.6">
+          Exportiere alle Geräte als JSON zur Sicherung oder übertrage sie auf ein anderes System.
+        </p>
+        <div class="btn-group">
+          <button class="btn btn-secondary" onclick="exportDevices()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            JSON Export
+          </button>
+          <label class="btn btn-secondary" style="cursor:pointer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            JSON Import
+            <input type="file" accept=".json" onchange="importDevices(event)" style="display:none">
+          </label>
+        </div>
+      </div>
+
+      <!-- Updates -->
+      <div class="card">
+        <div class="card-title">Updates</div>
+        <div class="update-section">
+          <div class="update-info" id="update-info">Klicke auf "Prüfen" um nach Updates zu suchen.</div>
+          <div class="btn-group">
+            <button class="btn btn-secondary" onclick="checkUpdate()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              Auf Updates prüfen
+            </button>
+          </div>
+          <div id="update-cmds" style="display:none">
+            <p style="font-size:.73rem;font-weight:600;color:var(--text-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Manuelles Update:</p>
+            <pre>cd /opt/wol-dashboard
+git pull
+./venv/bin/pip install -r requirements.txt -q
+systemctl restart wol-dashboard</pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</div><!-- .main-content -->
+
+<!-- FAB -->
+<button class="fab" id="fab-add" title="Gerät hinzufügen" onclick="openEditModal(null)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+</button>
+
+<!-- ═══════════ MODAL: EDIT / ADD DEVICE ═══════════ -->
+<div class="modal-overlay hidden" id="device-modal">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-header">
+      <h2 id="modal-title">Gerät bearbeiten</h2>
+      <button class="modal-close" onclick="closeModal()" aria-label="Schließen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Name *</label>
+          <input class="input" id="modal-name" placeholder="z.B. Gaming PC">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Gruppe</label>
+          <input class="input" id="modal-group" placeholder="z.B. Workstations" list="group-list">
+          <datalist id="group-list"></datalist>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">MAC-Adresse *</label>
+          <input class="input mono" id="modal-mac" placeholder="AA:BB:CC:DD:EE:FF">
+        </div>
+        <div class="field-group">
+          <label class="field-label">IP-Adresse</label>
+          <input class="input mono" id="modal-ip" placeholder="192.168.1.x">
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Notizen</label>
+        <textarea class="input" id="modal-notes" placeholder="Optionale Notiz…" rows="2"></textarea>
+      </div>
+
+      <!-- Schedules -->
+      <div class="schedule-section">
+        <div class="schedule-section-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Geplante Weckzeiten
+        </div>
+        <div class="schedule-list" id="modal-schedule-list">
+          <div style="padding:10px 12px;font-size:.78rem;color:var(--text-4)">Kein Gerät ausgewählt</div>
+        </div>
+        <div class="schedule-add-area" id="schedule-add-area" style="display:none">
+          <div class="schedule-add-row">
+            <input class="input mono" id="sched-cron" placeholder="0 7 * * 1-5" style="flex:1">
+            <input class="input" id="sched-label" placeholder="Bezeichnung" style="flex:1">
+            <button class="btn btn-primary btn-sm" onclick="addSchedule()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Hinzufügen
+            </button>
+          </div>
+          <span class="cron-hint">Format: min std tag monat wochentag — z.B. <code>0 7 * * 1-5</code> = Mo–Fr 07:00</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-primary" id="modal-save-btn" onclick="saveDevice()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Speichern
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
