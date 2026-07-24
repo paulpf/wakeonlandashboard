@@ -132,12 +132,39 @@ function dlBlob(content, mime, filename) {
 }
 
 // ── Clock ──
+let serverTime = null;
+
 function tickClock() {
   const el = document.getElementById("topbar-clock");
-  if (el) el.textContent = new Date().toLocaleTimeString("de-DE");
+  if (!el) return;
+  
+  if (serverTime) {
+    // Show server time
+    el.textContent = serverTime;
+    el.title = "Server-Zeit (LXC Container)";
+  } else {
+    // Fallback to local time
+    el.textContent = new Date().toLocaleTimeString("de-DE");
+    el.title = "Lokale Uhrzeit (Fallback)";
+  }
 }
+
+async function updateServerTime() {
+  try {
+    const data = await api("GET", "/api/time");
+    serverTime = data.formatted;  // DD.MM.YYYY HH:MM:SS
+    tickClock();
+  } catch (err) {
+    console.warn("Could not fetch server time:", err);
+    serverTime = null;
+    tickClock();
+  }
+}
+
 setInterval(tickClock, 1000);
+setInterval(updateServerTime, 5000);  // Update server time every 5 seconds
 tickClock();
+updateServerTime();
 
 // ── Theme ──
 function toggleTheme() {

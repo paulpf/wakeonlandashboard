@@ -492,6 +492,18 @@ def api_version():
     return jsonify({"version": updater.get_local_version()})
 
 
+@app.get("/api/time")
+def api_time():
+    """Return current server time in ISO 8601 format and human-readable format."""
+    from datetime import datetime
+    now = datetime.now()
+    return jsonify({
+        "timestamp": now.isoformat(),
+        "iso": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "formatted": now.strftime("%d.%m.%Y %H:%M:%S")  # German format: DD.MM.YYYY HH:MM:SS
+    })
+
+
 @app.get("/api/events")
 def subscribe_events():
     """SSE endpoint for real-time device status updates."""
