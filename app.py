@@ -57,13 +57,16 @@ def _broadcast_for(dev: dict, cfg: dict) -> str:
 def _scheduled_wake(device_id: int):
     dev = db.get_device(device_id)
     if not dev:
+        print(f"⚠ Scheduled wake: Device {device_id} not found")
         return
     cfg = load_config()
     try:
         wol_mod.send_magic_packet(dev["mac"], _broadcast_for(dev, cfg), cfg.get("wol_port", 9))
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=True)
-    except Exception:
+        print(f"✓ Scheduled wake sent to {dev['name']} ({dev['mac']})")
+    except Exception as e:
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=False)
+        print(f"✗ Scheduled wake failed for {dev['name']}: {str(e)}")
 
 
 def _rebuild_schedules():
@@ -76,17 +79,26 @@ def _rebuild_schedules():
         job_id = f"dev_{sched['device_id']}_{sched['id']}"
         try:
             from apscheduler.triggers.cron import CronTrigger
-            parts = sched["cron_expr"].split()
+            cron_str = sched["cron_expr"].strip()
+            parts = cron_str.split()
+            
+            if len(parts) < 5:
+                print(f"⚠ Schedule {sched['id']} (device {sched['device_id']}): Invalid cron expression format: {cron_str}")
+                continue
+            
+            minute, hour, day, month, dow = parts[0], parts[1], parts[2], parts[3], parts[4]
+            
             trigger = CronTrigger(
-                minute=parts[0], hour=parts[1],
-                day=parts[2] if len(parts) > 2 else "*",
-                month=parts[3] if len(parts) > 3 else "*",
-                day_of_week=parts[4] if len(parts) > 4 else "*",
+                minute=minute, hour=hour,
+                day=day,
+                month=month,
+                day_of_week=dow,
             )
             scheduler.add_job(_scheduled_wake, trigger, args=[sched["device_id"]],
                               id=job_id, replace_existing=True)
-        except Exception:
-            pass
+            print(f"✓ Schedule {sched['id']} registered: {sched['device_name']} at {cron_str}")
+        except Exception as e:
+            print(f"✗ Failed to schedule {sched['id']}: {str(e)}")
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +113,7 @@ def startup():
     scheduler.add_job(_run_network_scan, "interval", seconds=300, id="net_scan")
     _rebuild_schedules()
     scheduler.start()
+    print(f"✓ APScheduler started with {len(scheduler.get_jobs())} job(s)")
 
 
 # ---------------------------------------------------------------------------
