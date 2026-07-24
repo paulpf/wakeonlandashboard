@@ -77,6 +77,46 @@ Die IP findest du mit `ip addr show eth0` im Container oder in Proxmox unter "Ne
 
 ---
 
+## Installation ohne Internet (Offline / Air-Gap)
+
+Für Proxmox-Server ohne Internet-Zugang gibt es ein Bundle-Skript.
+Benötigt wird nur ein Windows-PC **mit** Internet und WinSCP.
+
+### 1. Bundle auf Windows bauen
+
+```powershell
+cd w:\wakeonlandashboard
+.\build-offline-bundle.ps1
+```
+
+Erzeugt `dist\wol-offline-v1.1.0.zip` — enthält App-Code + alle Python-Wheels.
+
+### 2. ZIP per WinSCP auf den LXC übertragen
+
+WinSCP → SFTP → LXC-IP, Port 22, User `root`  
+Datei nach `/tmp/` ziehen.
+
+### 3. Im LXC installieren
+
+```bash
+cd /tmp
+unzip wol-offline-v1.1.0.zip
+bash wol-offline-v1.1.0/offline-install.sh
+```
+
+**Update:** exakt derselbe Ablauf — das Skript erkennt eine vorhandene Installation
+und überschreibt nur den App-Code. `data/` (Konfiguration + Datenbank) bleibt erhalten.
+
+### Voraussetzungen auf dem LXC
+
+Die Pakete `python3`, `python3-venv` und `unzip` müssen vorhanden sein.
+Das Installer-Skript prüft dies und gibt eine klare Fehlermeldung wenn etwas fehlt.
+
+Falls der LXC noch nie Internet hatte, diese drei `.deb`-Pakete separat besorgen
+(z.B. von [packages.debian.org](https://packages.debian.org)) und per WinSCP + `dpkg -i` einspielen.
+
+---
+
 ## Manuelles Update
 
 Das Dashboard wird **nicht** per `git clone` deployed — Update daher per Tarball:
