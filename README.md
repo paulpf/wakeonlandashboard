@@ -17,6 +17,7 @@ Ein modernes Wake-on-LAN Dashboard für den Browser — läuft auf einem Proxmox
 | **Browser-Notifications** | Benachrichtigung wenn ein Gerät nach dem Wecken online kommt |
 | **Import/Export** | Geräteliste als JSON sichern und wiederherstellen |
 | **Dark/Light Mode** | Wechsel per Klick, wird gespeichert |
+| **Port-Scanner** | Scannt offene Ports aller bekannten IPs — zeigt Dienste als farbige Pills (SSH, RDP, Proxmox, Cockpit …) |
 | **Update-Check** | Prüft automatisch ob eine neue GitHub-Version verfügbar ist |
 | **REST API** | Alle Funktionen per HTTP-API erreichbar (z.B. für Home Assistant) |
 | **Konfigurierbar** | Netz-Bereich, Broadcast-Adresse, WoL-Port, Intervall anpassbar |
@@ -78,12 +79,24 @@ Die IP findest du mit `ip addr show eth0` im Container oder in Proxmox unter "Ne
 
 ## Manuelles Update
 
+Das Dashboard wird **nicht** per `git clone` deployed — Update daher per Tarball:
+
 ```bash
+# TAG durch die gewünschte Version ersetzen, z.B. v1.2.0
+TAG=v1.2.0
+
+cd /opt
+wget -q "https://github.com/paulpf/wakeonlandashboard/archive/refs/tags/${TAG}.tar.gz" -O wol-update.tar.gz
+tar -xzf wol-update.tar.gz
+cp -r wakeonlandashboard-${TAG#v}/* wol-dashboard/
+rm -rf wakeonlandashboard-${TAG#v} wol-update.tar.gz
 cd /opt/wol-dashboard
-git pull
 ./venv/bin/pip install -r requirements.txt -q
 systemctl restart wol-dashboard
 ```
+
+> Die genauen Befehle für die jeweils aktuelle Version werden im Dashboard unter
+> **Einstellungen → Updates** automatisch angezeigt sobald ein Update verfügbar ist.
 
 ---
 
@@ -114,6 +127,8 @@ oder direkt in `data/config.json` bearbeitet werden.
 | `POST` | `/api/wake/bulk` | Mehrere Geräte wecken (`{"ids":[1,2,3]}`) |
 | `GET` | `/api/scan/results` | Letzte Scan-Ergebnisse |
 | `POST` | `/api/scan/start` | Netz-Scan starten |
+| `POST` | `/api/scan/ports` | Port-Scan starten |
+| `GET` | `/api/scan/ports/status` | Port-Scan Status |
 | `GET` | `/api/history` | Wake-Verlauf |
 | `GET` | `/api/config` | Konfiguration abrufen |
 | `POST` | `/api/config` | Konfiguration speichern |
