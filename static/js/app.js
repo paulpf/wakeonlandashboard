@@ -13,6 +13,7 @@ let statusFilter = "all";
 let pollTimer    = null;
 let scanSortCol  = "ip";
 let scanSortAsc  = true;
+let eventSource   = null;  // SSE connection
 
 // ── Service map (port → display info) ──
 const SERVICE_MAP = {
@@ -77,6 +78,48 @@ function esc(s) {
   return String(s ?? "")
     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
     .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+function connectToEvents() {
+  "use strict";
+  if (eventSource) eventSource.close();
+  
+  eventSource = new EventSource("/api/events");
+  console.log("📡 Connected to server events");
+  
+  eventSource.onmessage = (e) => {
+    try {
+      const event = JSON.parse(e.data);
+      if (event.type === "device_status_changed" && event.device_id) {
+        // Reload just the affected device
+        api("GET", "/api/devices")
+          .then(fresh => {
+            devices = fresh;
+            renderDeviceGrid();
+            updateStats();
+          })
+          .catch(err => console.error("Failed to refresh devices:", err));
+      } else if (event.type === "device_waking_up" && event.device_id) {
+        // Same as status change - reload to show "waking up" status
+        api("GET", "/api/devices")
+          .then(fresh => {
+            devices = fresh;
+            renderDeviceGrid();
+            updateStats();
+          })
+          .catch(err => console.error("Failed to refresh devices:", err));
+      }
+    } catch (err) {
+      console.error("Event parse error:", err);
+    }
+  };
+  
+  eventSource.onerror = (e) => {
+    console.warn("❌ Event connection error, reconnecting in 5s...");
+    eventSource.close();
+    eventSource = null;
+    setTimeout(connectToEvents, 5000);
+  };
 }
 
 function dlBlob(content, mime, filename) {
@@ -405,41 +448,10 @@ async function wakeDevice(id) {
   try {
     await api("POST", `/api/devices/${id}/wake`);
     toast(`Magisches Paket gesendet an ${dev?.name || id}`, "success");
-    // Start aggressive polling to show "waking up" status
-    watchForStatusChange(id, dev.name);
+    // Events will automatically update the UI with "waking up" status
   } catch (e) {
     toast("Wake fehlgeschlagen: " + e.message, "error");
   }
-}
-
-function watchForStatusChange(id, name) {
-  let attempts = 0;
-  const maxAttempts = 180;  // 3 minutes with 1sec interval
-  const t = setInterval(async () => {
-    if (++attempts > maxAttempts) { 
-      clearInterval(t); 
-      return; 
-    }
-    try {
-      const fresh = await api("GET", "/api/devices").catch(() => []);
-      const dev = fresh.find(d => d.id === id);
-      if (!dev) return;
-      
-      // Update displayed devices to show "waking up" or state changes
-      devices = fresh;
-      renderDeviceGrid();
-      updateStats();
-      
-      // Stop polling once device is online
-      if (dev.is_online) {
-        clearInterval(t);
-        toast(`${name} ist jetzt online!`, "success");
-        if (Notification.permission === "granted") new Notification(`${name} ist jetzt online!`);
-      }
-    } catch (e) {
-      // Silently continue polling on error
-    }
-  }, 1000);  // Poll every 1 second (not 10s)
 }
 
 async function deleteDevice(id) {
@@ -999,6 +1011,7 @@ function startPoll() {
 // ── Boot ──
 (async function init() {
   await loadDevices();
+  connectToEvents();  // Connect to SSE for real-time updates
   checkUpdate();
   startPoll();
 })();

@@ -1,8 +1,9 @@
 import json
 import threading
+import queue
 from datetime import datetime, timezone
 
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, Response
 from flask_cors import CORS
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -21,12 +22,32 @@ _port_scan_status = {"running": False, "last_run": None, "scanned": 0}
 _status_check_fast_mode = False  # Track if we're in fast polling mode
 _fast_mode_started_at = None  # Timestamp when fast mode was activated (failsafe timeout)
 
+# SSE (Server-Sent Events) for real-time updates
+_event_subscribers = []
+_event_lock = threading.Lock()
+
 scheduler = BackgroundScheduler(daemon=True)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _broadcast_device_event(event_type: str, device_id: int = None, data: dict = None):
+    """Broadcast a device event to all connected SSE clients."""
+    event = {
+        "type": event_type,
+        "device_id": device_id,
+        "data": data or {},
+        "ts": datetime.now(timezone.utc).isoformat()
+    }
+    with _event_lock:
+        for q in _event_subscribers:
+            try:
+                q.put_nowait(event)
+            except queue.Full:
+                pass  # Client disconnected or slow
+
 
 def _run_status_check():
     """Ping all managed devices and update their online status. Switch to fast mode if devices are waking up."""
@@ -37,7 +58,11 @@ def _run_status_check():
     for dev in devices:
         try:
             online = scanner.check_device_online(dev["ip"])
+            old_status = dev["is_online"]
             db.update_device_status(dev["mac"], online, dev["ip"] if online else None)
+            # Broadcast status change event
+            if old_status != online:
+                _broadcast_device_event("device_status_changed", dev["id"], {"online": online})
         except Exception as e:
             print(f"⚠ Status check failed for {dev.get('name', 'Unknown')}: {str(e)}")
     
@@ -127,6 +152,7 @@ def _scheduled_wake(device_id: int):
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=True)
         db.set_wake_request(dev["mac"])  # Mark as "waking up"
         _enable_fast_polling()  # Activate fast polling to show "Waking up" status
+        _broadcast_device_event("device_waking_up", device_id, {"triggered_by": "schedule"})
         print(f"✓ Scheduled wake sent to {dev['name']} ({dev['mac']})")
     except Exception as e:
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=False)
@@ -277,6 +303,7 @@ def api_wake_device(device_id):
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="manual", success=True)
         db.set_wake_request(dev["mac"])  # Mark as "waking up"
         _enable_fast_polling()  # Activate fast polling to show "Waking up" status
+        _broadcast_device_event("device_waking_up", device_id, {"triggered_by": "manual"})
         return jsonify({"ok": True})
     except Exception as e:
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="manual", success=False)
@@ -297,6 +324,7 @@ def api_wake_bulk():
             wol_mod.send_magic_packet(dev["mac"], _broadcast_for(dev, cfg), cfg.get("wol_port", 9))
             db.log_wake(dev_id, dev["name"], dev["mac"], triggered_by="bulk", success=True)
             db.set_wake_request(dev["mac"])  # Mark as "waking up"
+            _broadcast_device_event("device_waking_up", dev_id, {"triggered_by": "bulk"})
             results.append({"id": dev_id, "ok": True})
         except Exception as e:
             results.append({"id": dev_id, "ok": False, "error": str(e)})
@@ -449,6 +477,35 @@ def api_update_check():
 @app.get("/api/update/version")
 def api_version():
     return jsonify({"version": updater.get_local_version()})
+
+
+@app.get("/api/events")
+def subscribe_events():
+    """SSE endpoint for real-time device status updates."""
+    q = queue.Queue(maxsize=50)
+    with _event_lock:
+        _event_subscribers.append(q)
+    
+    def event_stream():
+        try:
+            while True:
+                try:
+                    event = q.get(timeout=30)  # 30sec timeout for keep-alive
+                    yield f"data: {json.dumps(event)}\n\n"
+                except queue.Empty:
+                    # Keep-alive ping
+                    yield ": keep-alive\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            with _event_lock:
+                if q in _event_subscribers:
+                    _event_subscribers.remove(q)
+    
+    return Response(event_stream(), mimetype="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no"
+    })
 
 
 # ---------------------------------------------------------------------------
