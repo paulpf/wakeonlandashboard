@@ -860,6 +860,18 @@ async function checkUpdate() {
       info_box.innerHTML = `<strong style="color:var(--amber)">Neue Version: ${esc(info.remote.tag)}</strong>
         &ensp;<a href="${esc(info.remote.url)}" target="_blank" style="color:var(--blue);font-size:.8rem">Release-Notes →</a>
         <br><span style="font-size:.78rem;color:var(--text-3)">Aktuell installiert: v${esc(info.local)}</span>`;
+      const tag = esc(info.remote.tag);
+      const tarball = esc(info.remote.tarball_url);
+      const pre = document.getElementById("update-cmds-text");
+      if (pre) pre.textContent =
+`cd /opt
+wget -q "${tarball}" -O wol-update.tar.gz
+tar -xzf wol-update.tar.gz
+cp -r wakeonlandashboard-${tag.replace(/^v/,"")}/* wol-dashboard/
+rm -rf wakeonlandashboard-${tag.replace(/^v/,"")} wol-update.tar.gz
+cd /opt/wol-dashboard
+./venv/bin/pip install -r requirements.txt -q
+systemctl restart wol-dashboard`;
       cmds_box.style.display = "";
     } else if (info.not_configured) {
       badge.classList.add("hidden");

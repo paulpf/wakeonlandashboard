@@ -23,11 +23,14 @@ def get_latest_release() -> dict | None:
         resp = requests.get(GITHUB_API.format(repo=repo), timeout=10)
         resp.raise_for_status()
         data = resp.json()
+        tag = data.get("tag_name", "")
+        tarball = f"https://github.com/{repo}/archive/refs/tags/{tag}.tar.gz"
         return {
-            "tag": data.get("tag_name", ""),
+            "tag": tag,
             "name": data.get("name", ""),
             "body": data.get("body", ""),
             "url": data.get("html_url", ""),
+            "tarball_url": tarball,
             "published_at": data.get("published_at", ""),
         }
     except Exception as e:
