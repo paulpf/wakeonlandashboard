@@ -67,7 +67,29 @@ cd /opt/wol-dashboard
 bash install.sh
 ```
 
-### 4. Dashboard aufrufen
+### 4. ⚠️ Zeitzone konfigurieren (KRITISCH für Schedules!)
+
+⚠️ **Wichtig:** Ohne korrekte Zeitzone funktionieren geplante Weckzeiten nicht!
+
+**Aktuelle Einstellung prüfen:**
+```bash
+timedatectl
+```
+
+**Zeitzone auf Berlin setzen (oder anpassen):**
+```bash
+timedatectl set-timezone Europe/Berlin
+```
+
+**Überprüfen und Service neu starten:**
+```bash
+date
+systemctl restart wol-dashboard
+```
+
+Die Zeit sollte nun z.B. `Fri 2026-07-24 23:31:19 CEST` anzeigen.
+
+### 5. Dashboard aufrufen
 
 ```
 http://<container-ip>:5000
@@ -197,6 +219,18 @@ Das Zielgerät muss WoL unterstützen und aktiviert haben:
 ---
 
 ## Troubleshooting
+
+**Geplante Weckzeiten (Schedules) funktionieren nicht?**
+⚠️ **Erste Prüfung:** Zeitzone im LXC-Container korrekt?
+```bash
+timedatectl
+# Sollte zeigen: Time zone: Europe/Berlin (oder deine Zeitzone)
+# Nicht: Time zone: Etc/UTC (das ist falsch!)
+
+# Falls falsch: Zeitzone setzen und Service neu starten
+timedatectl set-timezone Europe/Berlin
+systemctl restart wol-dashboard
+```
 
 **Scan findet keine Geräte?**
 ```bash
