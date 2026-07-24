@@ -138,14 +138,24 @@ function tickClock() {
   const el = document.getElementById("topbar-clock");
   if (!el) return;
   
+  // Local time (client)
+  const localTime = new Date().toLocaleTimeString("de-DE", { 
+    hour: "2-digit", 
+    minute: "2-digit", 
+    second: "2-digit" 
+  });
+  
   if (serverTime) {
-    // Show server time
-    el.textContent = serverTime;
-    el.title = "Server-Zeit (LXC Container)";
+    // Show both local and server time
+    // serverTime format: "24.07.2026 23:57:01"
+    const [dateStr, timeStr] = serverTime.split(" ");
+    const [hours, minutes, seconds] = timeStr.split(":");
+    el.textContent = `${localTime} | LXC ${hours}:${seconds}`;
+    el.title = `Lokale Zeit: ${localTime}\nLXC Container: ${serverTime}`;
   } else {
-    // Fallback to local time
-    el.textContent = new Date().toLocaleTimeString("de-DE");
-    el.title = "Lokale Uhrzeit (Fallback)";
+    // Fallback to local time only
+    el.textContent = localTime;
+    el.title = "Lokale Zeit (LXC nicht erreichbar)";
   }
 }
 
