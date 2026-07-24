@@ -18,6 +18,7 @@ CORS(app)
 _scan_lock = threading.Lock()
 _scan_status = {"running": False, "last_run": None, "found": 0}
 _port_scan_status = {"running": False, "last_run": None, "scanned": 0}
+_status_check_fast_mode = False  # Track if we're in fast polling mode
 
 scheduler = BackgroundScheduler(daemon=True)
 
@@ -27,12 +28,30 @@ scheduler = BackgroundScheduler(daemon=True)
 # ---------------------------------------------------------------------------
 
 def _run_status_check():
-    """Ping all managed devices and update their online status."""
+    """Ping all managed devices and update their online status. Switch to fast mode if devices are waking up."""
+    global _status_check_fast_mode
+    
     devices = db.get_all_devices()
     cfg = load_config()
     for dev in devices:
         online = scanner.check_device_online(dev["ip"])
         db.update_device_status(dev["mac"], online, dev["ip"] if online else None)
+    
+    # Check if any devices are still waking up
+    has_waking = db.has_waking_devices()
+    
+    # Switch polling interval based on waking devices
+    job = scheduler.get_job("status_check")
+    if has_waking and not _status_check_fast_mode:
+        # Switch to fast mode (10 seconds)
+        job.reschedule(trigger="interval", seconds=10)
+        _status_check_fast_mode = True
+        print("→ Fast status polling enabled (10s)")
+    elif not has_waking and _status_check_fast_mode:
+        # Switch back to normal mode (60 seconds)
+        job.reschedule(trigger="interval", seconds=60)
+        _status_check_fast_mode = False
+        print("→ Status polling back to normal (60s)")
 
 
 def _run_network_scan():
@@ -63,6 +82,7 @@ def _scheduled_wake(device_id: int):
     try:
         wol_mod.send_magic_packet(dev["mac"], _broadcast_for(dev, cfg), cfg.get("wol_port", 9))
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=True)
+        db.set_wake_request(dev["mac"])  # Mark as "waking up"
         print(f"✓ Scheduled wake sent to {dev['name']} ({dev['mac']})")
     except Exception as e:
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=False)
@@ -208,6 +228,7 @@ def api_wake_device(device_id):
             cfg.get("wol_port", 9),
         )
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="manual", success=True)
+        db.set_wake_request(dev["mac"])  # Mark as "waking up"
         return jsonify({"ok": True})
     except Exception as e:
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="manual", success=False)
@@ -227,6 +248,7 @@ def api_wake_bulk():
         try:
             wol_mod.send_magic_packet(dev["mac"], _broadcast_for(dev, cfg), cfg.get("wol_port", 9))
             db.log_wake(dev_id, dev["name"], dev["mac"], triggered_by="bulk", success=True)
+            db.set_wake_request(dev["mac"])  # Mark as "waking up"
             results.append({"id": dev_id, "ok": True})
         except Exception as e:
             results.append({"id": dev_id, "ok": False, "error": str(e)})

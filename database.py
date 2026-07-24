@@ -68,6 +68,8 @@ def init_db():
             db.execute("ALTER TABLE devices ADD COLUMN broadcast TEXT DEFAULT ''")
         if "open_ports" not in dev_cols:
             db.execute("ALTER TABLE devices ADD COLUMN open_ports TEXT DEFAULT '[]'")
+        if "wake_request_ts" not in dev_cols:
+            db.execute("ALTER TABLE devices ADD COLUMN wake_request_ts TEXT")
         scan_cols = {row[1] for row in db.execute("PRAGMA table_info(scan_results)").fetchall()}
         if "open_ports" not in scan_cols:
             db.execute("ALTER TABLE scan_results ADD COLUMN open_ports TEXT DEFAULT '[]'")
@@ -133,6 +135,27 @@ def update_device_status(mac: str, is_online: bool, ip: str = None) -> None:
                 UPDATE devices SET is_online=?, last_seen=datetime('now')
                 WHERE mac=?
             """, (1 if is_online else 0, mac))
+
+
+def set_wake_request(mac: str) -> None:
+    """Mark device as 'waking up' by setting current timestamp."""
+    mac = mac.upper().replace("-", ":").strip()
+    with get_db() as db:
+        db.execute(
+            "UPDATE devices SET wake_request_ts=datetime('now') WHERE mac=?",
+            (mac,)
+        )
+
+
+def has_waking_devices() -> bool:
+    """Check if any devices are currently 'waking up' (wake_request_ts < 120 seconds old)."""
+    with get_db() as db:
+        result = db.execute("""
+            SELECT COUNT(*) as cnt FROM devices
+            WHERE wake_request_ts IS NOT NULL
+            AND datetime('now') < datetime(wake_request_ts, '+120 seconds')
+        """).fetchone()
+        return result["cnt"] > 0 if result else False
 
 
 # ---------- schedules ----------

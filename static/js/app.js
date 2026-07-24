@@ -270,6 +270,18 @@ function deviceCard(d) {
   const portPills  = portChecks.map(p =>
     `<span class="port-pill">${esc(String(p))}</span>`).join("");
 
+  // Check if device is "waking up"
+  let statusText = d.is_online ? "Online" : "Offline";
+  let statusClass = onCls;
+  if (!d.is_online && d.wake_request_ts) {
+    const wakeSince = new Date(d.wake_request_ts.replace(/\+00:00$/, "Z"));
+    const secondsAgo = (Date.now() - wakeSince.getTime()) / 1000;
+    if (secondsAgo < 120) {  // Show "waking up" for up to 2 minutes
+      statusText = "Waking up...";
+      statusClass = "waking-up";
+    }
+  }
+
   return `
 <div class="device-card ${onCls}" data-id="${d.id}">
   <div class="card-stripe"></div>
@@ -285,9 +297,9 @@ function deviceCard(d) {
         <div class="device-name">${esc(d.name)}</div>
         ${d.group_name ? `<span class="device-group-tag">${esc(d.group_name)}</span>` : ""}
       </div>
-      <span class="status-pill ${onCls}">
-        <span class="status-dot ${onCls}"></span>
-        ${d.is_online ? "Online" : "Offline"}
+      <span class="status-pill ${statusClass}">
+        <span class="status-dot ${statusClass}"></span>
+        ${statusText}
       </span>
     </div>
     <div class="device-meta">
