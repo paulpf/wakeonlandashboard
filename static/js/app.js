@@ -90,27 +90,30 @@ function connectToEvents() {
   eventSource.onmessage = (e) => {
     try {
       const event = JSON.parse(e.data);
+      console.log("📨 Event received:", event.type, event.device_id);
       if (event.type === "device_status_changed" && event.device_id) {
-        // Reload just the affected device
+        console.log("🔄 Refreshing devices due to status change");
         api("GET", "/api/devices")
           .then(fresh => {
             devices = fresh;
             renderDeviceGrid();
             updateStats();
+            console.log("✅ UI updated from event");
           })
           .catch(err => console.error("Failed to refresh devices:", err));
       } else if (event.type === "device_waking_up" && event.device_id) {
-        // Same as status change - reload to show "waking up" status
+        console.log("⏰ Refreshing devices due to waking up event");
         api("GET", "/api/devices")
           .then(fresh => {
             devices = fresh;
             renderDeviceGrid();
             updateStats();
+            console.log("✅ UI updated from wake event");
           })
           .catch(err => console.error("Failed to refresh devices:", err));
       }
     } catch (err) {
-      console.error("Event parse error:", err);
+      console.error("Event parse error:", err, "raw data:", e.data);
     }
   };
   
@@ -448,7 +451,12 @@ async function wakeDevice(id) {
   try {
     await api("POST", `/api/devices/${id}/wake`);
     toast(`Magisches Paket gesendet an ${dev?.name || id}`, "success");
-    // Events will automatically update the UI with "waking up" status
+    // Immediate refresh to show "waking up" status
+    setTimeout(() => {
+      console.log("⏱️ Immediate refresh after wake request");
+      loadDevices();
+    }, 100);
+    // Events will also trigger updates
   } catch (e) {
     toast("Wake fehlgeschlagen: " + e.message, "error");
   }
