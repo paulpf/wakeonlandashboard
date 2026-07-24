@@ -61,7 +61,7 @@ pct enter 200
 
 ```bash
 apt-get update && apt-get install -y git
-git clone https://github.com/yourusername/wakeonlandashboard.git /opt/wol-dashboard
+git clone https://github.com/paulpf/wakeonlandashboard.git /opt/wol-dashboard
 cd /opt/wol-dashboard
 bash install.sh
 ```
