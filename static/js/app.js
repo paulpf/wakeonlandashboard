@@ -618,9 +618,23 @@ async function loadSchedulesInModal(deviceId) {
     }
     list.innerHTML = schedules.map(s => `
       <div class="schedule-row" data-sid="${s.id}">
-        <span class="schedule-cron" title="${esc(s.cron_expr)}">${esc(describeCron(s.cron_expr))}</span>
-        <span style="flex:1;color:var(--text-2);font-size:.8rem">${esc(s.label || "")}</span>
-        <button class="card-icon-btn danger btn-sm" style="width:26px;height:26px" onclick="deleteSchedule(${s.id},${deviceId})">
+        <div style="display:flex;align-items:center;gap:8px;flex:1">
+          <button class="card-icon-btn" style="width:24px;height:24px;padding:0" onclick="toggleSchedule(${s.id},${!s.enabled})">
+            <svg viewBox="0 0 24 24" fill="${s.enabled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px">
+              <circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/>
+            </svg>
+          </button>
+          <div style="flex:1;min-width:0">
+            <div class="schedule-cron" style="color:${s.enabled ? 'var(--text-1)' : 'var(--text-3)'}" title="${esc(s.cron_expr)}">${esc(describeCron(s.cron_expr))}</div>
+            <div style="font-size:.75rem;color:var(--text-2)">${esc(s.label || "")}</div>
+          </div>
+        </div>
+        <button class="card-icon-btn btn-sm" style="width:24px;height:24px" onclick="editSchedulePrompt(${s.id},${deviceId})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+        <button class="card-icon-btn danger btn-sm" style="width:24px;height:24px" onclick="deleteSchedule(${s.id},${deviceId})">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
@@ -635,6 +649,53 @@ async function deleteSchedule(sid, deviceId) {
   await api("DELETE", `/api/schedules/${sid}`);
   toast("Zeitplan entfernt", "info");
   loadSchedulesInModal(deviceId);
+}
+
+async function toggleSchedule(sid, newEnabled) {
+  await api("PATCH", `/api/schedules/${sid}`, { enabled: newEnabled });
+  toast(newEnabled ? "Zeitplan aktiviert" : "Zeitplan deaktiviert", "info");
+  // Find deviceId from modal to refresh
+  const modal = document.querySelector("[data-modal='schedule']");
+  if (modal && editDeviceId) {
+    loadSchedulesInModal(editDeviceId);
+  }
+}
+
+async function editSchedulePrompt(sid, deviceId) {
+  // Get schedule details
+  const allScheds = await api("GET", `/api/devices/${deviceId}/schedules`);
+  const sched = allScheds.find(s => s.id === sid);
+  if (!sched) return;
+  
+  // Populate edit form
+  document.getElementById("edit-sched-cron").value = sched.cron_expr || "";
+  document.getElementById("edit-sched-label").value = sched.label || "";
+  document.getElementById("edit-sched-id").value = sid;
+  document.getElementById("edit-sched-device-id").value = deviceId;
+  
+  // Show edit modal
+  document.getElementById("modal-edit-schedule").style.display = "flex";
+}
+
+async function saveScheduleEdit() {
+  const sid = parseInt(document.getElementById("edit-sched-id").value);
+  const deviceId = parseInt(document.getElementById("edit-sched-device-id").value);
+  const cron = document.getElementById("edit-sched-cron").value.trim();
+  const label = document.getElementById("edit-sched-label").value.trim();
+  
+  if (!cron) {
+    toast("Cron-Ausdruck erforderlich", "error");
+    return;
+  }
+  
+  try {
+    await api("PATCH", `/api/schedules/${sid}`, { cron_expr: cron, label });
+    toast("Zeitplan aktualisiert", "success");
+    document.getElementById("modal-edit-schedule").style.display = "none";
+    loadSchedulesInModal(deviceId);
+  } catch (e) {
+    toast("Fehler: " + e.message, "error");
+  }
 }
 
 async function addSchedule() {

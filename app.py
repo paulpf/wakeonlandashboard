@@ -359,9 +359,18 @@ def api_delete_schedule(schedule_id):
 
 
 @app.patch("/api/schedules/<int:schedule_id>")
-def api_toggle_schedule(schedule_id):
+def api_patch_schedule(schedule_id):
     data = request.json or {}
-    db.toggle_schedule(schedule_id, data.get("enabled", True))
+    # Toggle enabled status
+    if "enabled" in data:
+        db.toggle_schedule(schedule_id, data.get("enabled", True))
+    # Update cron expression and/or label
+    if "cron_expr" in data or "label" in data:
+        db.update_schedule(
+            schedule_id,
+            cron_expr=data.get("cron_expr"),
+            label=data.get("label")
+        )
     _rebuild_schedules()
     return jsonify({"ok": True})
 

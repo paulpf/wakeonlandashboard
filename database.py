@@ -213,6 +213,25 @@ def toggle_schedule(schedule_id: int, enabled: bool) -> None:
         db.execute("UPDATE schedules SET enabled=? WHERE id=?", (1 if enabled else 0, schedule_id))
 
 
+def update_schedule(schedule_id: int, cron_expr: str = None, label: str = None) -> None:
+    """Update schedule cron expression and/or label."""
+    updates = []
+    values = []
+    if cron_expr is not None:
+        updates.append("cron_expr=?")
+        values.append(cron_expr)
+    if label is not None:
+        updates.append("label=?")
+        values.append(label)
+    
+    if not updates:
+        return  # Nothing to update
+    
+    values.append(schedule_id)
+    with get_db() as db:
+        db.execute(f"UPDATE schedules SET {', '.join(updates)} WHERE id=?", tuple(values))
+
+
 # ---------- history ----------
 
 def log_wake(device_id: int | None, device_name: str, mac: str,
