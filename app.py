@@ -19,6 +19,7 @@ _scan_lock = threading.Lock()
 _scan_status = {"running": False, "last_run": None, "found": 0}
 _port_scan_status = {"running": False, "last_run": None, "scanned": 0}
 _status_check_fast_mode = False  # Track if we're in fast polling mode
+_fast_mode_started_at = None  # Timestamp when fast mode was activated (failsafe timeout)
 
 scheduler = BackgroundScheduler(daemon=True)
 
@@ -29,29 +30,51 @@ scheduler = BackgroundScheduler(daemon=True)
 
 def _run_status_check():
     """Ping all managed devices and update their online status. Switch to fast mode if devices are waking up."""
-    global _status_check_fast_mode
+    global _status_check_fast_mode, _fast_mode_started_at
     
     devices = db.get_all_devices()
     cfg = load_config()
     for dev in devices:
-        online = scanner.check_device_online(dev["ip"])
-        db.update_device_status(dev["mac"], online, dev["ip"] if online else None)
+        try:
+            online = scanner.check_device_online(dev["ip"])
+            db.update_device_status(dev["mac"], online, dev["ip"] if online else None)
+        except Exception as e:
+            print(f"⚠ Status check failed for {dev.get('name', 'Unknown')}: {str(e)}")
     
     # Check if any devices are still waking up
-    has_waking = db.has_waking_devices()
+    try:
+        has_waking = db.has_waking_devices()
+    except Exception as e:
+        print(f"⚠ Error checking waking devices: {str(e)} — falling back to normal polling")
+        has_waking = False  # Fallback on error
+    
+    # Check for failsafe timeout: if fast mode was active for >5 min, force back to normal
+    if _fast_mode_started_at:
+        time_in_fast_mode = (datetime.now(timezone.utc) - _fast_mode_started_at).total_seconds()
+        if time_in_fast_mode > 300:  # 5 minutes failsafe
+            has_waking = False
+            print(f"⚠ Fast polling timeout (5 min exceeded) — forcing back to normal mode")
     
     # Switch polling interval based on waking devices
     job = scheduler.get_job("status_check")
-    if has_waking and not _status_check_fast_mode:
-        # Switch to fast mode (10 seconds)
-        job.reschedule(trigger="interval", seconds=10)
-        _status_check_fast_mode = True
-        print("→ Fast status polling enabled (10s)")
-    elif not has_waking and _status_check_fast_mode:
-        # Switch back to normal mode (60 seconds)
-        job.reschedule(trigger="interval", seconds=60)
-        _status_check_fast_mode = False
-        print("→ Status polling back to normal (60s)")
+    if job is None:
+        return  # Job was removed, exit
+    
+    try:
+        if has_waking and not _status_check_fast_mode:
+            # Switch to fast mode (10 seconds)
+            job.reschedule(trigger="interval", seconds=10)
+            _status_check_fast_mode = True
+            _fast_mode_started_at = datetime.now(timezone.utc)
+            print("→ Fast status polling enabled (10s)")
+        elif not has_waking and _status_check_fast_mode:
+            # Switch back to normal mode (60 seconds)
+            job.reschedule(trigger="interval", seconds=60)
+            _status_check_fast_mode = False
+            _fast_mode_started_at = None
+            print("→ Status polling back to normal (60s)")
+    except Exception as e:
+        print(f"✗ Failed to reschedule status check: {str(e)} — keeping current interval")
 
 
 def _run_network_scan():
