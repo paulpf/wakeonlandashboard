@@ -130,6 +130,12 @@ def api_add_device():
     data = request.json or {}
     if not data.get("mac") or not data.get("name"):
         return jsonify({"error": "name and mac required"}), 400
+    
+    # Check if ports were already scanned for this IP
+    existing_ports = []
+    if data.get("ip"):
+        existing_ports = db.get_ports_from_scan(data["ip"])
+    
     dev_id = db.upsert_device(
         name=data["name"],
         mac=data["mac"],
@@ -138,11 +144,14 @@ def api_add_device():
         group_name=data.get("group_name", "Default"),
         notes=data.get("notes", ""),
         port_checks=data.get("port_checks", []),
+        open_ports=existing_ports if existing_ports else None,
     )
-    # Scan ports for the new device in background if IP is provided
-    if data.get("ip"):
+    
+    # If no ports were found from scan, scan them now in background
+    if data.get("ip") and not existing_ports:
         t = threading.Thread(target=_scan_single_device_ports, args=(data["ip"],), daemon=True)
         t.start()
+    
     return jsonify({"id": dev_id}), 201
 
 
@@ -154,6 +163,13 @@ def api_update_device(device_id):
         return jsonify({"error": "not found"}), 404
     new_ip = data.get("ip", dev["ip"])
     old_ip = dev.get("ip", "")
+    
+    # Check if ports were already scanned for the new IP
+    open_ports_to_set = None
+    if new_ip and new_ip != old_ip:
+        existing_ports = db.get_ports_from_scan(new_ip)
+        open_ports_to_set = existing_ports if existing_ports else None
+    
     db.upsert_device(
         name=data.get("name", dev["name"]),
         mac=dev["mac"],
@@ -162,11 +178,14 @@ def api_update_device(device_id):
         group_name=data.get("group_name", dev["group_name"]),
         notes=data.get("notes", dev["notes"]),
         port_checks=data.get("port_checks", json.loads(dev["port_checks"] or "[]")),
+        open_ports=open_ports_to_set,
     )
-    # Scan ports if IP was changed or is new
-    if new_ip and new_ip != old_ip:
+    
+    # If IP changed and no ports found from scan, scan them now in background
+    if new_ip and new_ip != old_ip and not open_ports_to_set:
         t = threading.Thread(target=_scan_single_device_ports, args=(new_ip,), daemon=True)
         t.start()
+    
     return jsonify({"ok": True})
 
 

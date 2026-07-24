@@ -210,6 +210,20 @@ def get_scan_results() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_ports_from_scan(ip: str) -> list[int]:
+    """Get already-scanned ports for an IP from scan_results."""
+    with get_db() as db:
+        row = db.execute(
+            "SELECT open_ports FROM scan_results WHERE ip=?", (ip,)
+        ).fetchone()
+    if row and row["open_ports"]:
+        try:
+            return json.loads(row["open_ports"])
+        except Exception:
+            return []
+    return []
+
+
 def save_port_scan(port_map: dict[str, list[int]]) -> None:
     """Persist port scan results: update scan_results and devices by IP."""
     with get_db() as db:
