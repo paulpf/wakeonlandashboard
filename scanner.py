@@ -72,12 +72,23 @@ def _resolve_hostname(ip: str) -> str:
 
 def _ping(ip: str, timeout: float = 0.5) -> bool:
     try:
-        result = subprocess.run(
-            ["ping", "-c", "1", "-W", str(int(timeout * 1000)), ip],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=timeout + 1,
-        )
+        import sys
+        if sys.platform == "win32":
+            # Windows: ping -n 1 -w <milliseconds>
+            result = subprocess.run(
+                ["ping", "-n", "1", "-w", str(int(timeout * 1000)), ip],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=timeout + 1,
+            )
+        else:
+            # Linux/Mac: ping -c 1 -W <milliseconds>
+            result = subprocess.run(
+                ["ping", "-c", "1", "-W", str(int(timeout * 1000)), ip],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=timeout + 1,
+            )
         return result.returncode == 0
     except Exception:
         return False
