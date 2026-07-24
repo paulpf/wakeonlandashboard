@@ -897,12 +897,70 @@ a.service-pill:hover {
 .schedule-add-area {
   padding: 10px 12px;
   border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
 }
-.schedule-add-row { display: flex; gap: 6px; }
-.cron-hint { font-size: .7rem; color: var(--text-4); line-height: 1.5; }
+.sched-builder { display: flex; flex-direction: column; gap: 8px; }
+.sched-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sched-label-text {
+  font-size: .72rem;
+  color: var(--text-3);
+  font-weight: 500;
+  width: 68px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.sched-time { display: flex; align-items: center; gap: 4px; }
+.sched-colon { font-size: .9rem; color: var(--text-2); font-weight: 600; }
+.sched-select {
+  width: auto;
+  padding: 4px 6px;
+  font-size: .8rem;
+  height: 30px;
+  cursor: pointer;
+}
+.sched-days { display: flex; gap: 4px; flex-wrap: wrap; }
+.sched-day-btn {
+  padding: 3px 8px;
+  font-size: .75rem;
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+  line-height: 1.4;
+  min-width: 30px;
+  text-align: center;
+}
+.sched-day-btn:hover { border-color: var(--border-hover); color: var(--text-1); }
+.sched-day-btn.active {
+  background: var(--blue-bg);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.sched-presets { display: flex; gap: 5px; }
+.sched-preset-btn {
+  padding: 2px 9px;
+  font-size: .71rem;
+  font-weight: 500;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+  line-height: 1.6;
+}
+.sched-preset-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+.sched-actions { margin-top: 2px; }
 
 /* ══════════════════════════════════════
    FORM CONTROLS

@@ -469,17 +469,56 @@
           <div style="padding:10px 12px;font-size:.78rem;color:var(--text-4)">Kein Gerät ausgewählt</div>
         </div>
         <div class="schedule-add-area" id="schedule-add-area" style="display:none">
-          <div class="schedule-add-row">
-            <input class="input mono" id="sched-cron" placeholder="0 7 * * 1-5" style="flex:1">
-            <input class="input" id="sched-label" placeholder="Bezeichnung" style="flex:1">
-            <button class="btn btn-primary btn-sm" onclick="addSchedule()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Hinzufügen
-            </button>
+          <div class="sched-builder">
+            <div class="sched-row">
+              <span class="sched-label-text">Uhrzeit</span>
+              <div class="sched-time">
+                <select class="input sched-select" id="sched-hour">
+                  <!-- filled by JS -->
+                </select>
+                <span class="sched-colon">:</span>
+                <select class="input sched-select" id="sched-minute">
+                  <option value="0">00</option>
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                  <option value="45">45</option>
+                </select>
+              </div>
+            </div>
+            <div class="sched-row">
+              <span class="sched-label-text">Tage</span>
+              <div class="sched-days">
+                <button type="button" class="sched-day-btn" data-day="1">Mo</button>
+                <button type="button" class="sched-day-btn" data-day="2">Di</button>
+                <button type="button" class="sched-day-btn" data-day="3">Mi</button>
+                <button type="button" class="sched-day-btn" data-day="4">Do</button>
+                <button type="button" class="sched-day-btn" data-day="5">Fr</button>
+                <button type="button" class="sched-day-btn" data-day="6">Sa</button>
+                <button type="button" class="sched-day-btn" data-day="0">So</button>
+              </div>
+            </div>
+            <div class="sched-row">
+              <span class="sched-label-text"></span>
+              <div class="sched-presets">
+                <button type="button" class="sched-preset-btn" onclick="schedPreset('daily')">Täglich</button>
+                <button type="button" class="sched-preset-btn" onclick="schedPreset('weekdays')">Mo–Fr</button>
+                <button type="button" class="sched-preset-btn" onclick="schedPreset('weekend')">Wochenende</button>
+              </div>
+            </div>
+            <div class="sched-row">
+              <span class="sched-label-text">Bezeichnung</span>
+              <input class="input" id="sched-label" placeholder="z.B. Büro-PC morgens" style="flex:1">
+            </div>
+            <div class="sched-row sched-actions">
+              <span class="sched-label-text"></span>
+              <button class="btn btn-primary btn-sm" onclick="addSchedule()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Hinzufügen
+              </button>
+            </div>
           </div>
-          <span class="cron-hint">Format: min std tag monat wochentag — z.B. <code>0 7 * * 1-5</code> = Mo–Fr 07:00</span>
         </div>
       </div>
     </div>
