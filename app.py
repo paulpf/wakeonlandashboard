@@ -58,9 +58,13 @@ def _run_status_check():
     for dev in devices:
         try:
             online = scanner.check_device_online(dev["ip"])
-            old_status = dev["is_online"]
-            db.update_device_status(dev["mac"], online, dev["ip"] if online else None)
-            # Broadcast status change event
+            old_status = bool(dev["is_online"])  # Convert INT to BOOL for consistent comparison
+            online = bool(online)  # Ensure online is BOOL, not INT
+            
+            # Update status and preserve IP (don't clear it when device goes offline)
+            db.update_device_status(dev["mac"], online, dev["ip"])
+            
+            # Broadcast status change event only if status actually changed
             if old_status != online:
                 _broadcast_device_event("device_status_changed", dev["id"], {"online": online})
         except Exception as e:
