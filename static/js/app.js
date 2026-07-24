@@ -724,7 +724,7 @@ function openScheduleModal(deviceId, scheduleData = null) {
   if (hourSel && hourSel.options.length === 0) {
     for (let h = 0; h < 24; h++) {
       const opt = document.createElement("option");
-      opt.value = h;
+      opt.value = String(h);
       opt.textContent = String(h).padStart(2, "0");
       if (h === 7) opt.selected = true;
       hourSel.appendChild(opt);
