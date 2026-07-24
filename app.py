@@ -492,6 +492,59 @@ def api_version():
     return jsonify({"version": updater.get_local_version()})
 
 
+@app.post("/api/update/apply")
+def api_update_apply():
+    """Apply available update: fetch tags, checkout, reinstall, restart."""
+    import subprocess
+    import os
+    
+    try:
+        latest = updater.get_latest_release()
+        if not latest or latest["newer"] is False:
+            return jsonify({"error": "No update available"}), 400
+        
+        new_version = latest.get("version", "")
+        if not new_version:
+            return jsonify({"error": "Could not determine version"}), 400
+        
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        
+        # Run update in subprocess (will restart service)
+        def do_update():
+            try:
+                # Fetch latest tags
+                subprocess.run(["git", "fetch", "--tags"], cwd=repo_root, check=True, capture_output=True, timeout=30)
+                
+                # Checkout new version
+                subprocess.run(["git", "checkout", f"v{new_version}"], cwd=repo_root, check=True, capture_output=True, timeout=30)
+                
+                # Clean local changes
+                subprocess.run(["git", "clean", "-fd"], cwd=repo_root, check=True, capture_output=True, timeout=30)
+                
+                # Reinstall dependencies
+                venv_pip = os.path.join(repo_root, "venv", "bin", "pip")
+                subprocess.run([venv_pip, "install", "-r", "requirements.txt", "-q"], cwd=repo_root, check=True, timeout=60)
+                
+                # Restart service
+                subprocess.run(["systemctl", "restart", "wol-dashboard"], check=True, capture_output=True, timeout=10)
+                
+                print(f"✅ Update to v{new_version} completed")
+            except subprocess.CalledProcessError as e:
+                print(f"❌ Update failed: {e}")
+            except Exception as e:
+                print(f"❌ Update error: {e}")
+        
+        # Run in background thread to avoid blocking
+        import threading
+        t = threading.Thread(target=do_update, daemon=True)
+        t.start()
+        
+        return jsonify({"message": f"Updating to v{new_version}...", "version": new_version})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.get("/api/time")
 def api_time():
     """Return current server time in ISO 8601 format and human-readable format."""

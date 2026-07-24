@@ -1126,7 +1126,13 @@ async function checkUpdate() {
       badge.textContent = "Update verfügbar";
       info_box.innerHTML = `<strong style="color:var(--amber)">Neue Version: ${esc(info.remote.tag)}</strong>
         &ensp;<a href="${esc(info.remote.url)}" target="_blank" style="color:var(--blue);font-size:.8rem">Release-Notes →</a>
-        <br><span style="font-size:.78rem;color:var(--text-3)">Aktuell installiert: v${esc(info.local)}</span>`;
+        <br><span style="font-size:.78rem;color:var(--text-3)">Aktuell installiert: v${esc(info.local)}</span>
+        <br><button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="applyUpdate('${esc(info.remote.tag)}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;display:inline;margin-right:4px">
+            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          Update durchführen
+        </button>`;
       const tag = esc(info.remote.tag);
       const tarball = esc(info.remote.tarball_url);
       const pre = document.getElementById("update-cmds-text");
@@ -1155,6 +1161,31 @@ systemctl restart wol-dashboard`;
     }
   } catch (e) {
     info_box.textContent = "Prüfung fehlgeschlagen: " + e.message;
+  }
+}
+
+async function applyUpdate(version) {
+  const info_box = document.getElementById("update-info");
+  const btn = event?.target?.closest("button");
+  
+  if (!confirm(`Update zu ${version} durchführen? Der Service wird neu gestartet.`)) {
+    return;
+  }
+  
+  if (btn) btn.disabled = true;
+  info_box.innerHTML = `<span style="color:var(--text-3)">⏳ Update wird durchgeführt...</span>`;
+  
+  try {
+    const result = await api("POST", "/api/update/apply");
+    info_box.innerHTML = `<span style="color:var(--green)">✓ Update gestartet (${esc(result.version)})<br><small>Der Service wird in wenigen Sekunden neu gestartet...</small></span>`;
+    
+    // Reload page after 3 seconds
+    setTimeout(() => {
+      window.location.reload();
+    }, 3000);
+  } catch (e) {
+    info_box.innerHTML = `<span style="color:var(--red)">❌ Update fehlgeschlagen: ${esc(e.message)}</span>`;
+    if (btn) btn.disabled = false;
   }
 }
 
