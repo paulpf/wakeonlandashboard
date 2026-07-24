@@ -11,6 +11,8 @@ let currentPage  = "dashboard";
 let editDeviceId = null;
 let statusFilter = "all";
 let pollTimer    = null;
+let scanSortCol  = "ip";
+let scanSortAsc  = true;
 
 // ── API ──
 async function api(method, path, body) {
@@ -521,6 +523,39 @@ async function loadScanResults() {
   }
 }
 
+function ipToNum(ip) {
+  return (ip || "").split(".").reduce((acc, oct) => (acc << 8) + parseInt(oct || 0, 10), 0) >>> 0;
+}
+
+function setScanSort(col) {
+  if (scanSortCol === col) {
+    scanSortAsc = !scanSortAsc;
+  } else {
+    scanSortCol = col;
+    scanSortAsc = true;
+  }
+  ["ip","mac","hostname","vendor"].forEach(c => {
+    const el = document.getElementById("sort-" + c);
+    if (!el) return;
+    el.textContent = c === scanSortCol ? (scanSortAsc ? "▲" : "▼") : "";
+  });
+  renderScanTable();
+}
+
+function sortedScanResults() {
+  const col = scanSortCol;
+  const asc = scanSortAsc;
+  return [...scanResults].sort((a, b) => {
+    let av = a[col] || "", bv = b[col] || "";
+    if (col === "ip") {
+      av = ipToNum(av); bv = ipToNum(bv);
+      return asc ? av - bv : bv - av;
+    }
+    av = av.toLowerCase(); bv = bv.toLowerCase();
+    return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+}
+
 function renderScanTable() {
   const tbody = document.getElementById("scan-tbody");
   const knownMacs = new Set(devices.map(d => (d.mac || "").toUpperCase()));
@@ -528,7 +563,7 @@ function renderScanTable() {
     tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">Noch kein Scan durchgeführt. Klicke "Scan starten".</td></tr>`;
     return;
   }
-  tbody.innerHTML = scanResults.map(h => {
+  tbody.innerHTML = sortedScanResults().map(h => {
     const already = knownMacs.has((h.mac || "").toUpperCase());
     const statusHtml = h.is_online !== undefined
       ? `<span class="status-pill ${h.is_online ? 'online' : 'offline'}" style="display:inline-flex">

@@ -226,10 +226,10 @@
             <th style="width:36px">
               <input type="checkbox" id="scan-check-all" onchange="toggleAllScan(this.checked)" style="accent-color:var(--blue)">
             </th>
-            <th>IP-Adresse</th>
-            <th>MAC-Adresse</th>
-            <th>Hostname</th>
-            <th>Hersteller</th>
+            <th class="sortable" onclick="setScanSort('ip')" data-col="ip">IP-Adresse <span class="sort-indicator" id="sort-ip">▲</span></th>
+            <th class="sortable" onclick="setScanSort('mac')" data-col="mac">MAC-Adresse <span class="sort-indicator" id="sort-mac"></span></th>
+            <th class="sortable" onclick="setScanSort('hostname')" data-col="hostname">Hostname <span class="sort-indicator" id="sort-hostname"></span></th>
+            <th class="sortable" onclick="setScanSort('vendor')" data-col="vendor">Hersteller <span class="sort-indicator" id="sort-vendor"></span></th>
             <th>Status</th>
           </tr>
         </thead>

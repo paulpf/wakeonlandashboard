@@ -674,6 +674,9 @@ body {
 .data-table td.mono { font-family: 'JetBrains Mono', monospace; font-size: .78rem; letter-spacing: -.02em; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tbody tr:hover td { background: var(--bg-elevated); color: var(--text-1); }
+.data-table th.sortable { cursor: pointer; user-select: none; }
+.data-table th.sortable:hover { color: var(--text-2); background: var(--bg-elevated); }
+.sort-indicator { display: inline-block; width: 1em; font-size: .75em; opacity: .7; }
 .empty-cell { text-align: center; color: var(--text-4); padding: 48px !important; font-size: .84rem; }
 
 /* ══════════════════════════════════════
