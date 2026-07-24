@@ -539,7 +539,7 @@ async function saveDevice() {
 }
 
 // ── Cron-Builder ──
-function initSchedHours(builderId = "sched") {
+function initSchedHours(builderId = "schedule") {
   const sel = document.getElementById(`${builderId}-hour`);
   if (!sel || sel.options.length > 1) return;
   for (let h = 0; h < 24; h++) {
@@ -551,19 +551,14 @@ function initSchedHours(builderId = "sched") {
   }
 }
 
-// Setup day button listeners for main schedule builder
+// Setup day button listeners for main schedule builder & modal
 document.querySelectorAll(".sched-day-btn").forEach(btn => {
   btn.addEventListener("click", () => btn.classList.toggle("active"));
 });
 
-// Setup day button listeners for edit schedule builder
-document.querySelectorAll(".edit-sched-day-btn").forEach(btn => {
-  btn.addEventListener("click", () => btn.classList.toggle("active"));
-});
-
-function schedPreset(type, builderId = "sched") {
-  const selector = builderId === "sched" ? ".sched-day-btn" : `.${builderId}-day-btn`;
-  document.querySelectorAll(selector).forEach(btn => {
+function schedPreset(type, builderId = "schedule") {
+  // Always target .sched-day-btn as they're in all contexts (device modal and schedule modal)
+  document.querySelectorAll(".sched-day-btn").forEach(btn => {
     const d = +btn.dataset.day;
     let active = false;
     if (type === "daily")    active = true;
@@ -638,9 +633,12 @@ function describeCron(expr) {
 
 function resetSchedBuilder() {
   document.querySelectorAll(".sched-day-btn").forEach(b => b.classList.remove("active"));
-  document.getElementById("sched-label").value = "";
-  const hour = document.getElementById("sched-hour");
-  const min  = document.getElementById("sched-minute");
+  // Reset both old and new modal IDs for compatibility
+  const labelEl = document.getElementById("schedule-label") || document.getElementById("sched-label");
+  if (labelEl) labelEl.value = "";
+  
+  const hour = document.getElementById("schedule-hour") || document.getElementById("sched-hour");
+  const min  = document.getElementById("schedule-minute") || document.getElementById("sched-minute");
   if (hour) hour.value = 7;
   if (min)  min.value  = 0;
 }
@@ -666,7 +664,7 @@ async function loadSchedulesInModal(deviceId) {
           <div class="sched-cron" style="color:${s.enabled ? 'var(--text-1)' : 'var(--text-3)'}" title="${esc(s.cron_expr)}">${esc(describeCron(s.cron_expr))}</div>
           ${s.label ? `<div class="sched-label">${esc(s.label)}</div>` : ''}
         </div>
-        <button class="sched-icon-btn" onclick="editSchedulePrompt(${s.id},${deviceId})" title="Bearbeiten">
+        <button class="sched-icon-btn" onclick="startEditSchedule(${s.id},${deviceId})" title="Bearbeiten">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
           </svg>
@@ -696,41 +694,85 @@ async function toggleSchedule(sid, newEnabled, deviceId) {
   }
 }
 
-async function editSchedulePrompt(sid, deviceId) {
-  // Get schedule details
+async function startEditSchedule(sid, deviceId) {
   const allScheds = await api("GET", `/api/devices/${deviceId}/schedules`);
   const sched = allScheds.find(s => s.id === sid);
   if (!sched) {
     toast("Zeitplan nicht gefunden", "error");
     return;
   }
-  
-  // Store IDs
-  document.getElementById("edit-sched-id").value = sid;
-  document.getElementById("edit-sched-device-id").value = deviceId;
-  
-  // Populate edit form with cron builder
-  document.getElementById("edit-sched-label").value = sched.label || "";
-  parseCronToUI(sched.cron_expr, "edit-sched");
-  initSchedHours("edit-sched");
-  
-  // Show edit modal
-  document.getElementById("modal-edit-schedule").classList.remove("hidden");
+  openScheduleModal(deviceId, sched);
 }
 
-function closeEditScheduleModal() {
-  document.getElementById("modal-edit-schedule").classList.add("hidden");
+function openScheduleModal(deviceId, scheduleData = null) {
+  // Clear form first
+  resetSchedBuilder();
+  
+  const titleEl = document.getElementById("modal-schedule-title");
+  const hourSel = document.getElementById("schedule-hour");
+  const saveBtnEl = document.getElementById("schedule-save-btn");
+  
+  if (!scheduleData) {
+    // ADD MODE
+    titleEl.textContent = "Zeitplan hinzufügen";
+    saveBtnEl.textContent = "Hinzufügen";
+    document.getElementById("schedule-id").value = "";
+  } else {
+    // EDIT MODE
+    titleEl.textContent = "Zeitplan bearbeiten";
+    saveBtnEl.textContent = "Speichern";
+    document.getElementById("schedule-id").value = scheduleData.id;
+    document.getElementById("schedule-label").value = scheduleData.label || "";
+    
+    // Parse cron to UI
+    const parts = scheduleData.cron_expr.trim().split(/\s+/);
+    if (parts.length === 5) {
+      const [min, hour, , , dow] = parts;
+      document.getElementById("schedule-hour").value = hour;
+      document.getElementById("schedule-minute").value = min;
+      
+      // Mark active days
+      if (dow !== "*") {
+        const days = dow.split(",").map(Number);
+        document.querySelectorAll(".sched-day-btn").forEach(btn => {
+          if (days.includes(parseInt(btn.dataset.day))) {
+            btn.classList.add("active");
+          }
+        });
+      } else {
+        document.querySelectorAll(".sched-day-btn").forEach(btn => btn.classList.add("active"));
+      }
+    }
+  }
+  
+  document.getElementById("schedule-device-id").value = deviceId;
+  
+  // Populate hour dropdown if empty
+  if (hourSel && hourSel.options.length === 0) {
+    for (let h = 0; h < 24; h++) {
+      const opt = document.createElement("option");
+      opt.value = h;
+      opt.textContent = String(h).padStart(2, "0");
+      if (h === 7) opt.selected = true;
+      hourSel.appendChild(opt);
+    }
+  }
+  
+  // Show modal
+  document.getElementById("modal-schedule").classList.remove("hidden");
 }
 
-async function saveScheduleEdit() {
-  const sid = parseInt(document.getElementById("edit-sched-id").value);
-  const deviceId = parseInt(document.getElementById("edit-sched-device-id").value);
-  
-  // Build cron from edit-sched builder UI
-  const hour   = document.getElementById("edit-sched-hour").value;
-  const minute = document.getElementById("edit-sched-minute").value;
-  const active = [...document.querySelectorAll(".edit-sched-day-btn.active")].map(b => +b.dataset.day);
-  const label = document.getElementById("edit-sched-label").value.trim();
+function closeScheduleModal() {
+  document.getElementById("modal-schedule").classList.add("hidden");
+}
+
+async function saveScheduleModal() {
+  const scheduleId = document.getElementById("schedule-id").value;
+  const deviceId = parseInt(document.getElementById("schedule-device-id").value);
+  const hour = document.getElementById("schedule-hour").value;
+  const minute = document.getElementById("schedule-minute").value;
+  const active = [...document.querySelectorAll(".sched-day-btn.active")].map(b => +b.dataset.day);
+  const label = document.getElementById("schedule-label").value.trim();
   
   if (!active.length) {
     toast("Mindestens einen Wochentag auswählen", "error");
@@ -741,29 +783,23 @@ async function saveScheduleEdit() {
   const cron = `${minute} ${hour} * * ${days}`;
   
   try {
-    await api("PATCH", `/api/schedules/${sid}`, { cron_expr: cron, label });
-    toast("Zeitplan aktualisiert", "success");
-    closeEditScheduleModal();
+    if (scheduleId) {
+      // EDIT
+      await api("PATCH", `/api/schedules/${scheduleId}`, { cron_expr: cron, label });
+      toast("Zeitplan aktualisiert", "success");
+    } else {
+      // ADD
+      await api("POST", `/api/devices/${deviceId}/schedules`, { cron_expr: cron, label });
+      toast("Zeitplan hinzugefügt", "success");
+    }
+    closeScheduleModal();
     loadSchedulesInModal(deviceId);
   } catch (e) {
     toast("Fehler: " + e.message, "error");
   }
 }
 
-async function addSchedule() {
-  if (!editDeviceId) { toast("Gerät zuerst speichern", "info"); return; }
-  const cron  = buildCronFromUI();
-  const label = document.getElementById("sched-label").value.trim();
-  if (!cron) { toast("Mindestens einen Wochentag auswählen", "error"); return; }
-  try {
-    await api("POST", `/api/devices/${editDeviceId}/schedules`, { cron_expr: cron, label });
-    resetSchedBuilder();
-    loadSchedulesInModal(editDeviceId);
-    toast("Zeitplan hinzugefügt", "success");
-  } catch (e) {
-    toast("Fehler: " + e.message, "error");
-  }
-}
+
 
 // ── Scan ──
 async function loadScanResults() {
