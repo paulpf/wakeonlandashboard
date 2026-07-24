@@ -647,6 +647,8 @@ function resetSchedBuilder() {
 
 async function loadSchedulesInModal(deviceId) {
   const list = document.getElementById("modal-schedule-list");
+  const modal = document.getElementById("modal-schedule-list").closest("[data-modal]");
+  if (modal) modal.setAttribute("data-device-id", deviceId);
   try {
     const schedules = await api("GET", `/api/devices/${deviceId}/schedules`);
     if (!schedules.length) {
@@ -655,7 +657,7 @@ async function loadSchedulesInModal(deviceId) {
     }
     list.innerHTML = schedules.map(s => `
       <div class="schedule-row" data-sid="${s.id}">
-        <button class="sched-icon-btn ${s.enabled ? 'active' : 'inactive'}" onclick="toggleSchedule(${s.id},${!s.enabled})" title="${s.enabled ? 'Deaktivieren' : 'Aktivieren'}">
+        <button class="sched-icon-btn ${s.enabled ? 'active' : 'inactive'}" onclick="toggleSchedule(${s.id},${!s.enabled},${deviceId})" title="${s.enabled ? 'Deaktivieren' : 'Aktivieren'}">
           <svg viewBox="0 0 24 24" fill="${s.enabled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/>
           </svg>
@@ -686,13 +688,11 @@ async function deleteSchedule(sid, deviceId) {
   loadSchedulesInModal(deviceId);
 }
 
-async function toggleSchedule(sid, newEnabled) {
+async function toggleSchedule(sid, newEnabled, deviceId) {
   await api("PATCH", `/api/schedules/${sid}`, { enabled: newEnabled });
   toast(newEnabled ? "Zeitplan aktiviert" : "Zeitplan deaktiviert", "info");
-  // Find deviceId from modal to refresh
-  const modal = document.querySelector("[data-modal='schedule']");
-  if (modal && editDeviceId) {
-    loadSchedulesInModal(editDeviceId);
+  if (deviceId) {
+    loadSchedulesInModal(deviceId);
   }
 }
 
