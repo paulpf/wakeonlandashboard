@@ -715,11 +715,11 @@ async function editSchedulePrompt(sid, deviceId) {
   initSchedHours("edit-sched");
   
   // Show edit modal
-  document.getElementById("modal-edit-schedule").style.display = "flex";
+  document.getElementById("modal-edit-schedule").classList.remove("hidden");
 }
 
 function closeEditScheduleModal() {
-  document.getElementById("modal-edit-schedule").style.display = "none";
+  document.getElementById("modal-edit-schedule").classList.add("hidden");
 }
 
 async function saveScheduleEdit() {

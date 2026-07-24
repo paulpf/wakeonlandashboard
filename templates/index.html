@@ -545,8 +545,8 @@
 </div>
 
 <!-- Schedule Edit Modal -->
-<div id="modal-edit-schedule" class="modal" style="display:none">
-  <div class="modal-content" style="width:min(90vw,500px)">
+<div class="modal-overlay hidden" id="modal-edit-schedule">
+  <div class="modal" role="dialog" aria-modal="true">
     <div class="modal-header">
       <h2>Zeitplan bearbeiten</h2>
       <button class="modal-close" onclick="closeEditScheduleModal()" aria-label="Schließen">
@@ -616,8 +616,6 @@
     </div>
   </div>
 </div>
-
-<!-- Toast container -->
 <div id="toast-container"></div>
 
 <script src="/static/js/app.js"></script>
