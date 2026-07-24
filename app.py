@@ -96,6 +96,26 @@ def _broadcast_for(dev: dict, cfg: dict) -> str:
     return dev.get("broadcast") or cfg.get("broadcast_address", "255.255.255.255")
 
 
+def _enable_fast_polling():
+    """Activate fast polling (10 sec) if not already active."""
+    global _status_check_fast_mode, _fast_mode_started_at
+    
+    if _status_check_fast_mode:
+        return  # Already in fast mode
+    
+    job = scheduler.get_job("status_check")
+    if job is None:
+        return  # Job was removed
+    
+    try:
+        job.reschedule(trigger="interval", seconds=10)
+        _status_check_fast_mode = True
+        _fast_mode_started_at = datetime.now(timezone.utc)
+        print("→ Fast status polling enabled (10s)")
+    except Exception as e:
+        print(f"✗ Failed to enable fast polling: {str(e)}")
+
+
 def _scheduled_wake(device_id: int):
     dev = db.get_device(device_id)
     if not dev:
@@ -106,6 +126,7 @@ def _scheduled_wake(device_id: int):
         wol_mod.send_magic_packet(dev["mac"], _broadcast_for(dev, cfg), cfg.get("wol_port", 9))
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=True)
         db.set_wake_request(dev["mac"])  # Mark as "waking up"
+        _enable_fast_polling()  # Activate fast polling to show "Waking up" status
         print(f"✓ Scheduled wake sent to {dev['name']} ({dev['mac']})")
     except Exception as e:
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=False)
@@ -252,6 +273,7 @@ def api_wake_device(device_id):
         )
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="manual", success=True)
         db.set_wake_request(dev["mac"])  # Mark as "waking up"
+        _enable_fast_polling()  # Activate fast polling to show "Waking up" status
         return jsonify({"ok": True})
     except Exception as e:
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="manual", success=False)
@@ -275,6 +297,7 @@ def api_wake_bulk():
             results.append({"id": dev_id, "ok": True})
         except Exception as e:
             results.append({"id": dev_id, "ok": False, "error": str(e)})
+    _enable_fast_polling()  # Activate fast polling to show "Waking up" status for all
     return jsonify(results)
 
 
