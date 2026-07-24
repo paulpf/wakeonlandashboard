@@ -1,6 +1,7 @@
 import sqlite3
 import json
 from contextlib import contextmanager
+from datetime import datetime
 from config import DB_PATH
 
 
@@ -75,6 +76,21 @@ def init_db():
             db.execute("ALTER TABLE scan_results ADD COLUMN open_ports TEXT DEFAULT '[]'")
 
 
+def _convert_timestamps(row_dict: dict) -> dict:
+    """Convert SQLite timestamps to ISO 8601 format for JSON serialization."""
+    d = dict(row_dict)
+    timestamp_fields = ['last_seen', 'created_at', 'wake_request_ts', 'scanned_at', 'ts']
+    for field in timestamp_fields:
+        if field in d and d[field]:
+            try:
+                # Parse "YYYY-MM-DD HH:MM:SS" and convert to ISO 8601 with Z
+                dt = datetime.strptime(d[field], "%Y-%m-%d %H:%M:%S")
+                d[field] = dt.isoformat() + "Z"
+            except (ValueError, AttributeError):
+                pass  # Keep original if parse fails
+    return d
+
+
 # ---------- devices ----------
 
 def get_all_devices() -> list[dict]:
@@ -85,13 +101,13 @@ def get_all_devices() -> list[dict]:
             FROM devices d
             ORDER BY d.group_name, d.name
         """).fetchall()
-    return [dict(r) for r in rows]
+    return [_convert_timestamps(dict(r)) for r in rows]
 
 
 def get_device(device_id: int) -> dict | None:
     with get_db() as db:
         row = db.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
-    return dict(row) if row else None
+    return _convert_timestamps(dict(row)) if row else None
 
 
 def upsert_device(name: str, mac: str, ip: str = "", broadcast: str = "",
