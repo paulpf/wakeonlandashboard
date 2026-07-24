@@ -488,7 +488,6 @@ function openEditModal(id) {
   document.getElementById("modal-notes").value     = "";
   document.getElementById("modal-schedule-list").innerHTML =
     `<div style="padding:10px 12px;font-size:.78rem;color:var(--text-3)">Erst nach dem Speichern verfügbar</div>`;
-  document.getElementById("schedule-add-area").style.display = "none";
 
   if (id) {
     const dev = devices.find(d => d.id === id);
@@ -499,11 +498,9 @@ function openEditModal(id) {
       document.getElementById("modal-broadcast").value = dev.broadcast || "";
       document.getElementById("modal-group").value     = dev.group_name || "";
       document.getElementById("modal-notes").value     = dev.notes || "";
-      document.getElementById("schedule-add-area").style.display = "";
       loadSchedulesInModal(id);
     }
   }
-  initSchedHours();
   document.getElementById("device-modal").classList.remove("hidden");
 }
 
