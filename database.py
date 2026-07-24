@@ -24,6 +24,7 @@ def init_db():
                 name        TEXT NOT NULL,
                 mac         TEXT NOT NULL UNIQUE,
                 ip          TEXT,
+                broadcast   TEXT DEFAULT '',
                 group_name  TEXT DEFAULT 'Default',
                 notes       TEXT DEFAULT '',
                 port_checks TEXT DEFAULT '[]',
@@ -60,6 +61,10 @@ def init_db():
                 scanned_at  TEXT DEFAULT (datetime('now'))
             );
         """)
+        # migration: add broadcast column if missing (existing databases)
+        cols = {row[1] for row in db.execute("PRAGMA table_info(devices)").fetchall()}
+        if "broadcast" not in cols:
+            db.execute("ALTER TABLE devices ADD COLUMN broadcast TEXT DEFAULT ''")
 
 
 # ---------- devices ----------
@@ -81,22 +86,23 @@ def get_device(device_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-def upsert_device(name: str, mac: str, ip: str = "", group_name: str = "Default",
-                  notes: str = "", port_checks: list = None) -> int:
+def upsert_device(name: str, mac: str, ip: str = "", broadcast: str = "",
+                  group_name: str = "Default", notes: str = "",
+                  port_checks: list = None) -> int:
     mac = mac.upper().replace("-", ":").strip()
     port_checks_json = json.dumps(port_checks or [])
     with get_db() as db:
         existing = db.execute("SELECT id FROM devices WHERE mac=?", (mac,)).fetchone()
         if existing:
             db.execute("""
-                UPDATE devices SET name=?, ip=?, group_name=?, notes=?, port_checks=?
+                UPDATE devices SET name=?, ip=?, broadcast=?, group_name=?, notes=?, port_checks=?
                 WHERE mac=?
-            """, (name, ip, group_name, notes, port_checks_json, mac))
+            """, (name, ip, broadcast, group_name, notes, port_checks_json, mac))
             return existing["id"]
         cur = db.execute("""
-            INSERT INTO devices (name, mac, ip, group_name, notes, port_checks)
-            VALUES (?,?,?,?,?,?)
-        """, (name, mac, ip, group_name, notes, port_checks_json))
+            INSERT INTO devices (name, mac, ip, broadcast, group_name, notes, port_checks)
+            VALUES (?,?,?,?,?,?,?)
+        """, (name, mac, ip, broadcast, group_name, notes, port_checks_json))
         return cur.lastrowid
 
 

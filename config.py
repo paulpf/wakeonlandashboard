@@ -10,7 +10,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 DEFAULT_CONFIG = {
     "app_name": "WoL Dashboard",
-    "scan_network": "192.168.1.0/24",
+    "scan_networks": ["192.168.1.0/24"],
     "scan_interval_seconds": 60,
     "broadcast_address": "255.255.255.255",
     "wol_port": 9,
@@ -35,6 +35,12 @@ def load_config() -> dict:
     # merge any missing defaults
     for k, v in DEFAULT_CONFIG.items():
         cfg.setdefault(k, v)
+    # migrate old single-string scan_network → list
+    if "scan_network" in cfg and "scan_networks" not in cfg:
+        cfg["scan_networks"] = [cfg.pop("scan_network")]
+        save_config(cfg)
+    elif isinstance(cfg.get("scan_networks"), str):
+        cfg["scan_networks"] = [cfg["scan_networks"]]
     return cfg
 
 

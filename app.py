@@ -40,12 +40,17 @@ def _run_network_scan():
     _scan_status["running"] = True
     try:
         cfg = load_config()
-        hosts = scanner.scan_network(cfg.get("scan_network", "192.168.1.0/24"))
+        networks = cfg.get("scan_networks", ["192.168.1.0/24"])
+        hosts = scanner.scan_network(networks)
         db.save_scan_results(hosts)
         _scan_status["found"] = len(hosts)
         _scan_status["last_run"] = datetime.utcnow().isoformat()
     finally:
         _scan_status["running"] = False
+
+
+def _broadcast_for(dev: dict, cfg: dict) -> str:
+    return dev.get("broadcast") or cfg.get("broadcast_address", "255.255.255.255")
 
 
 def _scheduled_wake(device_id: int):
@@ -54,9 +59,9 @@ def _scheduled_wake(device_id: int):
         return
     cfg = load_config()
     try:
-        wol_mod.send_magic_packet(dev["mac"], cfg.get("broadcast_address", "255.255.255.255"), cfg.get("wol_port", 9))
+        wol_mod.send_magic_packet(dev["mac"], _broadcast_for(dev, cfg), cfg.get("wol_port", 9))
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=True)
-    except Exception as e:
+    except Exception:
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=False)
 
 
@@ -115,6 +120,7 @@ def api_add_device():
         name=data["name"],
         mac=data["mac"],
         ip=data.get("ip", ""),
+        broadcast=data.get("broadcast", ""),
         group_name=data.get("group_name", "Default"),
         notes=data.get("notes", ""),
         port_checks=data.get("port_checks", []),
@@ -132,6 +138,7 @@ def api_update_device(device_id):
         name=data.get("name", dev["name"]),
         mac=dev["mac"],
         ip=data.get("ip", dev["ip"]),
+        broadcast=data.get("broadcast", dev.get("broadcast", "")),
         group_name=data.get("group_name", dev["group_name"]),
         notes=data.get("notes", dev["notes"]),
         port_checks=data.get("port_checks", json.loads(dev["port_checks"] or "[]")),
@@ -154,7 +161,7 @@ def api_wake_device(device_id):
     try:
         wol_mod.send_magic_packet(
             dev["mac"],
-            cfg.get("broadcast_address", "255.255.255.255"),
+            _broadcast_for(dev, cfg),
             cfg.get("wol_port", 9),
         )
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="manual", success=True)
@@ -175,7 +182,7 @@ def api_wake_bulk():
         if not dev:
             continue
         try:
-            wol_mod.send_magic_packet(dev["mac"], cfg.get("broadcast_address", "255.255.255.255"), cfg.get("wol_port", 9))
+            wol_mod.send_magic_packet(dev["mac"], _broadcast_for(dev, cfg), cfg.get("wol_port", 9))
             db.log_wake(dev_id, dev["name"], dev["mac"], triggered_by="bulk", success=True)
             results.append({"id": dev_id, "ok": True})
         except Exception as e:
@@ -258,6 +265,9 @@ def api_get_config():
 def api_save_config():
     data = request.json or {}
     cfg = load_config()
+    # normalize scan_networks: accept string (newline-separated) or list
+    if "scan_networks" in data and isinstance(data["scan_networks"], str):
+        data["scan_networks"] = [n.strip() for n in data["scan_networks"].splitlines() if n.strip()]
     cfg.update(data)
     save_config(cfg)
     # reschedule status check with new interval

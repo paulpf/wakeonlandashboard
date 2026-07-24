@@ -401,11 +401,12 @@ async function deleteDevice(id) {
 function openEditModal(id) {
   editDeviceId = id;
   document.getElementById("modal-title").textContent = id ? "Gerät bearbeiten" : "Gerät hinzufügen";
-  document.getElementById("modal-name").value  = "";
-  document.getElementById("modal-mac").value   = "";
-  document.getElementById("modal-ip").value    = "";
-  document.getElementById("modal-group").value = "";
-  document.getElementById("modal-notes").value = "";
+  document.getElementById("modal-name").value      = "";
+  document.getElementById("modal-mac").value       = "";
+  document.getElementById("modal-ip").value        = "";
+  document.getElementById("modal-broadcast").value = "";
+  document.getElementById("modal-group").value     = "";
+  document.getElementById("modal-notes").value     = "";
   document.getElementById("modal-schedule-list").innerHTML =
     `<div style="padding:10px 12px;font-size:.78rem;color:var(--text-3)">Erst nach dem Speichern verfügbar</div>`;
   document.getElementById("schedule-add-area").style.display = "none";
@@ -413,11 +414,12 @@ function openEditModal(id) {
   if (id) {
     const dev = devices.find(d => d.id === id);
     if (dev) {
-      document.getElementById("modal-name").value  = dev.name;
-      document.getElementById("modal-mac").value   = dev.mac;
-      document.getElementById("modal-ip").value    = dev.ip || "";
-      document.getElementById("modal-group").value = dev.group_name || "";
-      document.getElementById("modal-notes").value = dev.notes || "";
+      document.getElementById("modal-name").value      = dev.name;
+      document.getElementById("modal-mac").value       = dev.mac;
+      document.getElementById("modal-ip").value        = dev.ip || "";
+      document.getElementById("modal-broadcast").value = dev.broadcast || "";
+      document.getElementById("modal-group").value     = dev.group_name || "";
+      document.getElementById("modal-notes").value     = dev.notes || "";
       document.getElementById("schedule-add-area").style.display = "";
       loadSchedulesInModal(id);
     }
@@ -435,17 +437,18 @@ document.getElementById("device-modal").addEventListener("click", e => {
 });
 
 async function saveDevice() {
-  const name  = document.getElementById("modal-name").value.trim();
-  const mac   = document.getElementById("modal-mac").value.trim();
-  const ip    = document.getElementById("modal-ip").value.trim();
-  const group = document.getElementById("modal-group").value.trim() || "Standard";
-  const notes = document.getElementById("modal-notes").value.trim();
+  const name      = document.getElementById("modal-name").value.trim();
+  const mac       = document.getElementById("modal-mac").value.trim();
+  const ip        = document.getElementById("modal-ip").value.trim();
+  const broadcast = document.getElementById("modal-broadcast").value.trim();
+  const group     = document.getElementById("modal-group").value.trim() || "Standard";
+  const notes     = document.getElementById("modal-notes").value.trim();
   if (!name || !mac) { toast("Name und MAC sind Pflichtfelder", "error"); return; }
   try {
     if (editDeviceId) {
-      await api("PUT", `/api/devices/${editDeviceId}`, { name, ip, group_name: group, notes });
+      await api("PUT", `/api/devices/${editDeviceId}`, { name, ip, broadcast, group_name: group, notes });
     } else {
-      await api("POST", "/api/devices", { name, mac, ip, group_name: group, notes });
+      await api("POST", "/api/devices", { name, mac, ip, broadcast, group_name: group, notes });
     }
     toast("Gespeichert", "success");
     closeModal();
@@ -672,7 +675,8 @@ async function exportHistoryCsv() {
 async function loadSettings() {
   try {
     const cfg = await api("GET", "/api/config");
-    document.getElementById("cfg-network").value   = cfg.scan_network || "";
+    const networks = Array.isArray(cfg.scan_networks) ? cfg.scan_networks : [cfg.scan_networks || ""];
+    document.getElementById("cfg-networks").value  = networks.join("\n");
     document.getElementById("cfg-broadcast").value = cfg.broadcast_address || "";
     document.getElementById("cfg-port").value      = cfg.wol_port || 9;
     document.getElementById("cfg-interval").value  = cfg.scan_interval_seconds || 60;
@@ -684,7 +688,7 @@ async function loadSettings() {
 
 async function saveSettings() {
   const cfg = {
-    scan_network:          document.getElementById("cfg-network").value.trim(),
+    scan_networks:         document.getElementById("cfg-networks").value,
     broadcast_address:     document.getElementById("cfg-broadcast").value.trim(),
     wol_port:              +document.getElementById("cfg-port").value,
     scan_interval_seconds: +document.getElementById("cfg-interval").value,

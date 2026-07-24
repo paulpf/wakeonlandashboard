@@ -297,12 +297,14 @@
       <div class="card">
         <div class="card-title">Netzwerk</div>
         <div class="field-group">
-          <label class="field-label">Netzwerkbereich (CIDR)</label>
-          <input class="input" id="cfg-network" placeholder="192.168.1.0/24">
+          <label class="field-label">Netzwerkbereiche (CIDR, eine pro Zeile)</label>
+          <textarea class="input" id="cfg-networks" rows="3" placeholder="192.168.1.0/24&#10;192.168.100.0/24" style="resize:vertical;font-family:var(--font-mono);font-size:.82rem"></textarea>
+          <span style="font-size:.73rem;color:var(--text-3)">Mehrere Subnetze möglich — einen pro Zeile</span>
         </div>
         <div class="field-group">
-          <label class="field-label">Broadcast-Adresse</label>
+          <label class="field-label">Standard-Broadcast-Adresse</label>
           <input class="input" id="cfg-broadcast" placeholder="255.255.255.255">
+          <span style="font-size:.73rem;color:var(--text-3)">Kann pro Gerät überschrieben werden</span>
         </div>
         <div class="field-row">
           <div class="field-group">
@@ -439,6 +441,10 @@ systemctl restart wol-dashboard</pre>
           <label class="field-label">IP-Adresse</label>
           <input class="input mono" id="modal-ip" placeholder="192.168.1.x">
         </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Broadcast-Adresse <span style="font-weight:400;color:var(--text-3)">(leer = globale Einstellung)</span></label>
+        <input class="input mono" id="modal-broadcast" placeholder="z.B. 192.168.100.255">
       </div>
       <div class="field-group">
         <label class="field-label">Notizen</label>

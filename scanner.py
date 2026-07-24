@@ -83,12 +83,11 @@ def _ping(ip: str, timeout: float = 0.5) -> bool:
         return False
 
 
-def scan_network(network: str = "192.168.1.0/24") -> list[dict]:
-    """ARP scan the network and return list of discovered hosts."""
+def _scan_single(network: str) -> list[dict]:
+    """Scan a single CIDR network and return discovered hosts (no hostname resolution)."""
     hosts = _arping(network)
 
     if not hosts:
-        # ultra-fallback: ping sweep
         try:
             net = ipaddress.ip_network(network, strict=False)
             ips = [str(h) for h in net.hosts()]
@@ -105,13 +104,35 @@ def scan_network(network: str = "192.168.1.0/24") -> list[dict]:
         for ip in sorted(alive, key=lambda x: ipaddress.ip_address(x)):
             hosts.append({"ip": ip, "mac": "", "hostname": "", "vendor": ""})
 
+    return hosts
+
+
+def scan_network(network = "192.168.1.0/24") -> list[dict]:
+    """Scan one or multiple networks (str or list of CIDR strings).
+
+    Returns deduplicated list of hosts with resolved hostnames.
+    """
+    networks = [network] if isinstance(network, str) else list(network)
+
+    seen_ips: set[str] = set()
+    merged: list[dict] = []
+
+    for net in networks:
+        net = net.strip()
+        if not net:
+            continue
+        for host in _scan_single(net):
+            if host["ip"] not in seen_ips:
+                seen_ips.add(host["ip"])
+                merged.append(host)
+
     # resolve hostnames in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=32) as ex:
-        futs = {ex.submit(_resolve_hostname, h["ip"]): i for i, h in enumerate(hosts)}
+        futs = {ex.submit(_resolve_hostname, h["ip"]): i for i, h in enumerate(merged)}
         for fut in concurrent.futures.as_completed(futs):
-            hosts[futs[fut]]["hostname"] = fut.result()
+            merged[futs[fut]]["hostname"] = fut.result()
 
-    return hosts
+    return merged
 
 
 def check_port(ip: str, port: int, timeout: float = 1.0) -> bool:
