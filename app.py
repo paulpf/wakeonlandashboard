@@ -139,6 +139,10 @@ def api_add_device():
         notes=data.get("notes", ""),
         port_checks=data.get("port_checks", []),
     )
+    # Scan ports for the new device in background if IP is provided
+    if data.get("ip"):
+        t = threading.Thread(target=_scan_single_device_ports, args=(data["ip"],), daemon=True)
+        t.start()
     return jsonify({"id": dev_id}), 201
 
 
@@ -148,15 +152,21 @@ def api_update_device(device_id):
     dev = db.get_device(device_id)
     if not dev:
         return jsonify({"error": "not found"}), 404
+    new_ip = data.get("ip", dev["ip"])
+    old_ip = dev.get("ip", "")
     db.upsert_device(
         name=data.get("name", dev["name"]),
         mac=dev["mac"],
-        ip=data.get("ip", dev["ip"]),
+        ip=new_ip,
         broadcast=data.get("broadcast", dev.get("broadcast", "")),
         group_name=data.get("group_name", dev["group_name"]),
         notes=data.get("notes", dev["notes"]),
         port_checks=data.get("port_checks", json.loads(dev["port_checks"] or "[]")),
     )
+    # Scan ports if IP was changed or is new
+    if new_ip and new_ip != old_ip:
+        t = threading.Thread(target=_scan_single_device_ports, args=(new_ip,), daemon=True)
+        t.start()
     return jsonify({"ok": True})
 
 
@@ -271,6 +281,19 @@ def _run_port_scan():
         _port_scan_status["last_run"] = datetime.now(timezone.utc).isoformat()
     finally:
         _port_scan_status["running"] = False
+
+
+def _scan_single_device_ports(ip: str) -> None:
+    """Scan ports on a single device IP (background task)."""
+    if not ip or not ip.strip():
+        return
+    try:
+        ports = scanner.scan_ports_for_ip(ip.strip())
+        if ports:
+            db.save_port_scan({ip.strip(): ports})
+            print(f"✓ Ports scanned for {ip}: {ports}")
+    except Exception as e:
+        print(f"⚠ Port scan failed for {ip}: {str(e)}")
 
 
 @app.post("/api/scan/ports")
