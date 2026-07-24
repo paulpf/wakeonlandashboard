@@ -68,7 +68,9 @@ function toast(msg, type = "info") {
 
 function fmt_dt(iso) {
   if (!iso) return "—";
-  return new Date(iso + (iso.endsWith("Z") ? "" : "Z")).toLocaleString("de-DE");
+  // Normalize Python's +00:00 offset to Z before parsing
+  const normalized = iso.replace(/\+00:00$/, "Z");
+  return new Date(normalized).toLocaleString("de-DE");
 }
 
 function esc(s) {
