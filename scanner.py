@@ -18,8 +18,9 @@ except Exception:
 
 
 def _arping(network: str) -> list[dict]:
-    """Run arp-scan or nmap ARP ping and parse results."""
+    """Run arp-scan, arp -a, or read /proc/net/arp to get MAC addresses."""
     hosts: list[dict] = []
+    import sys
 
     # try arp-scan first (Linux / LXC)
     try:
@@ -44,7 +45,28 @@ def _arping(network: str) -> list[dict]:
     except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         pass
 
-    # fallback: read /proc/net/arp
+    # Windows: try arp -a
+    if sys.platform == "win32":
+        try:
+            out = subprocess.check_output(["arp", "-a"], stderr=subprocess.DEVNULL).decode(errors="replace")
+            for line in out.splitlines():
+                parts = line.split()
+                # Windows arp format: IP  MAC  Type
+                if len(parts) >= 2:
+                    try:
+                        ip = parts[0].strip()
+                        ipaddress.ip_address(ip)
+                        mac = parts[1].strip().upper().replace("-", ":")
+                        if mac not in ("00:00:00:00:00:00", "") and len(mac) == 17:  # valid MAC
+                            hosts.append({"ip": ip, "mac": mac, "hostname": "", "vendor": ""})
+                    except (ValueError, IndexError):
+                        pass
+            if hosts:
+                return hosts
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass
+
+    # fallback: read /proc/net/arp (Linux)
     try:
         with open("/proc/net/arp") as f:
             lines = f.readlines()[1:]  # skip header
