@@ -499,11 +499,16 @@ def api_update_apply():
     import os
     
     try:
-        latest = updater.get_latest_release()
-        if not latest or latest["newer"] is False:
+        # Check if update is available
+        update_info = updater.is_update_available()
+        if not update_info.get("available"):
             return jsonify({"error": "No update available"}), 400
         
-        new_version = latest.get("version", "")
+        remote = update_info.get("remote")
+        if not remote:
+            return jsonify({"error": "Could not determine remote version"}), 400
+        
+        new_version = remote.get("tag", "").lstrip("v")
         if not new_version:
             return jsonify({"error": "Could not determine version"}), 400
         
