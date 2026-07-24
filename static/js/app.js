@@ -405,27 +405,41 @@ async function wakeDevice(id) {
   try {
     await api("POST", `/api/devices/${id}/wake`);
     toast(`Magisches Paket gesendet an ${dev?.name || id}`, "success");
-    if (dev && !dev.is_online) watchForOnline(id, dev.name);
+    // Start aggressive polling to show "waking up" status
+    watchForStatusChange(id, dev.name);
   } catch (e) {
     toast("Wake fehlgeschlagen: " + e.message, "error");
   }
 }
 
-function watchForOnline(id, name) {
+function watchForStatusChange(id, name) {
   let attempts = 0;
+  const maxAttempts = 180;  // 3 minutes with 1sec interval
   const t = setInterval(async () => {
-    if (++attempts > 30) { clearInterval(t); return; }
-    const fresh = await api("GET", "/api/devices").catch(() => []);
-    const dev = fresh.find(d => d.id === id);
-    if (dev?.is_online) {
-      clearInterval(t);
-      toast(`${name} ist jetzt online!`, "success");
-      if (Notification.permission === "granted") new Notification(`${name} ist jetzt online!`);
+    if (++attempts > maxAttempts) { 
+      clearInterval(t); 
+      return; 
+    }
+    try {
+      const fresh = await api("GET", "/api/devices").catch(() => []);
+      const dev = fresh.find(d => d.id === id);
+      if (!dev) return;
+      
+      // Update displayed devices to show "waking up" or state changes
       devices = fresh;
       renderDeviceGrid();
       updateStats();
+      
+      // Stop polling once device is online
+      if (dev.is_online) {
+        clearInterval(t);
+        toast(`${name} ist jetzt online!`, "success");
+        if (Notification.permission === "granted") new Notification(`${name} ist jetzt online!`);
+      }
+    } catch (e) {
+      // Silently continue polling on error
     }
-  }, 10000);
+  }, 1000);  // Poll every 1 second (not 10s)
 }
 
 async function deleteDevice(id) {
