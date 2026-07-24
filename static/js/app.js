@@ -328,6 +328,20 @@ function deviceCard(d) {
     }
   }
 
+  // Format enabled schedules
+  const schedules = d.schedules || [];
+  const enabledSchedules = schedules.filter(s => s.enabled === 1);
+  const scheduleLines = enabledSchedules.length > 0 
+    ? `<div class="schedule-display">
+        ${enabledSchedules.map(s => 
+          `<div class="schedule-line">
+            <span class="schedule-time">${describeCron(s.cron_expr)}</span>
+            ${s.label ? `<span class="schedule-label">${esc(s.label)}</span>` : ''}
+          </div>`
+        ).join('')}
+      </div>`
+    : '';
+
   return `
 <div class="device-card ${onCls}" data-id="${d.id}">
   <div class="card-stripe"></div>
@@ -348,6 +362,7 @@ function deviceCard(d) {
         ${statusText}
       </span>
     </div>
+    ${scheduleLines}
     <div class="device-meta">
       <div class="meta-row">
         <span class="meta-icon">

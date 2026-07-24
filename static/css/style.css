@@ -548,6 +548,35 @@ body {
   font-style: italic;
 }
 
+.schedule-display {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 0;
+}
+
+.schedule-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .75rem;
+  padding: 4px 0;
+}
+
+.schedule-time {
+  color: var(--text-2);
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -.02em;
+}
+
+.schedule-label {
+  color: var(--text-4);
+  font-style: italic;
+  margin-left: 4px;
+}
+
 .card-actions {
   display: flex;
   gap: 6px;

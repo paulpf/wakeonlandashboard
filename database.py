@@ -101,13 +101,28 @@ def get_all_devices() -> list[dict]:
             FROM devices d
             ORDER BY d.group_name, d.name
         """).fetchall()
-    return [_convert_timestamps(dict(r)) for r in rows]
+    
+    devices = [_convert_timestamps(dict(r)) for r in rows]
+    
+    # Include enabled schedules for each device
+    for dev in devices:
+        schedules = get_schedules(dev["id"])
+        dev["schedules"] = [s for s in schedules if s.get("enabled") == 1]
+    
+    return devices
 
 
 def get_device(device_id: int) -> dict | None:
     with get_db() as db:
         row = db.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
-    return _convert_timestamps(dict(row)) if row else None
+    dev = _convert_timestamps(dict(row)) if row else None
+    
+    # Include enabled schedules for this device
+    if dev:
+        schedules = get_schedules(dev["id"])
+        dev["schedules"] = [s for s in schedules if s.get("enabled") == 1]
+    
+    return dev
 
 
 def upsert_device(name: str, mac: str, ip: str = "", broadcast: str = "",
