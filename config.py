@@ -22,7 +22,7 @@ DEFAULT_CONFIG = {
         "SMB": 445
     },
     "auto_update_enabled": True,
-    "github_repo": "yourusername/wakeonlandashboard"
+    "github_repo": "paulpf/wakeonlandashboard"
 }
 
 
