@@ -135,6 +135,9 @@ def scan_network(network = "192.168.1.0/24") -> list[dict]:
     return merged
 
 
+KNOWN_PORTS = [22, 80, 443, 3389, 5900, 8006, 8080, 8443, 9090]
+
+
 def check_port(ip: str, port: int, timeout: float = 1.0) -> bool:
     try:
         with socket.create_connection((ip, port), timeout=timeout):
@@ -149,3 +152,31 @@ def check_device_online(ip: str, port: int = None, timeout: float = 1.5) -> bool
     if port:
         return check_port(ip, port, timeout)
     return _ping(ip, timeout)
+
+
+def scan_ports_for_ip(ip: str, ports: list[int] = None, timeout: float = 0.8) -> list[int]:
+    """Return list of open ports for a single IP."""
+    if not ip:
+        return []
+    targets = ports if ports is not None else KNOWN_PORTS
+    open_ports: list[int] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(targets)) as ex:
+        futs = {ex.submit(check_port, ip, p, timeout): p for p in targets}
+        for fut in concurrent.futures.as_completed(futs):
+            if fut.result():
+                open_ports.append(futs[fut])
+    return sorted(open_ports)
+
+
+def scan_ports_bulk(ips: list[str], ports: list[int] = None,
+                    timeout: float = 0.8) -> dict[str, list[int]]:
+    """Scan ports for multiple IPs in parallel. Returns {ip: [open_port, ...]}."""
+    results: dict[str, list[int]] = {}
+    if not ips:
+        return results
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as ex:
+        futs = {ex.submit(scan_ports_for_ip, ip, ports, timeout): ip for ip in ips}
+        for fut in concurrent.futures.as_completed(futs):
+            ip = futs[fut]
+            results[ip] = fut.result()
+    return results

@@ -1,6 +1,6 @@
 import json
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
@@ -17,6 +17,7 @@ CORS(app)
 
 _scan_lock = threading.Lock()
 _scan_status = {"running": False, "last_run": None, "found": 0}
+_port_scan_status = {"running": False, "last_run": None, "scanned": 0}
 
 scheduler = BackgroundScheduler(daemon=True)
 
@@ -44,7 +45,7 @@ def _run_network_scan():
         hosts = scanner.scan_network(networks)
         db.save_scan_results(hosts)
         _scan_status["found"] = len(hosts)
-        _scan_status["last_run"] = datetime.utcnow().isoformat()
+        _scan_status["last_run"] = datetime.now(timezone.utc).isoformat()
     finally:
         _scan_status["running"] = False
 
@@ -230,7 +231,8 @@ def api_toggle_schedule(schedule_id):
 
 @app.get("/api/scan/results")
 def api_scan_results():
-    return jsonify({"results": db.get_scan_results(), "status": _scan_status})
+    return jsonify({"results": db.get_scan_results(), "status": _scan_status,
+                    "port_scan_status": _port_scan_status})
 
 
 @app.post("/api/scan/start")
@@ -240,6 +242,36 @@ def api_scan_start():
     t = threading.Thread(target=_run_network_scan, daemon=True)
     t.start()
     return jsonify({"ok": True})
+
+
+def _run_port_scan():
+    if _port_scan_status["running"]:
+        return
+    _port_scan_status["running"] = True
+    try:
+        results = db.get_scan_results()
+        devices_list = db.get_all_devices()
+        ips = list({r["ip"] for r in results} | {d["ip"] for d in devices_list if d.get("ip")})
+        port_map = scanner.scan_ports_bulk(ips)
+        db.save_port_scan(port_map)
+        _port_scan_status["scanned"] = len(ips)
+        _port_scan_status["last_run"] = datetime.now(timezone.utc).isoformat()
+    finally:
+        _port_scan_status["running"] = False
+
+
+@app.post("/api/scan/ports")
+def api_port_scan_start():
+    if _port_scan_status["running"]:
+        return jsonify({"error": "port scan already running"}), 409
+    t = threading.Thread(target=_run_port_scan, daemon=True)
+    t.start()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/scan/ports/status")
+def api_port_scan_status():
+    return jsonify(_port_scan_status)
 
 
 # ---------------------------------------------------------------------------

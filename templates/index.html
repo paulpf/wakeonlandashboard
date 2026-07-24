@@ -214,7 +214,15 @@
         </svg>
         Scan starten
       </button>
+      <button class="btn btn-secondary" onclick="startPortScan()" id="port-scan-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/>
+          <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+        </svg>
+        Ports scannen
+      </button>
       <span class="scan-status-text" id="scan-status">Bereit</span>
+      <span class="scan-status-text" id="port-scan-status" style="display:none"></span>
       <div style="flex:1"></div>
       <span id="scan-count" class="badge-trigger"></span>
     </div>
@@ -230,6 +238,7 @@
             <th class="sortable" onclick="setScanSort('mac')" data-col="mac">MAC-Adresse <span class="sort-indicator" id="sort-mac"></span></th>
             <th class="sortable" onclick="setScanSort('hostname')" data-col="hostname">Hostname <span class="sort-indicator" id="sort-hostname"></span></th>
             <th class="sortable" onclick="setScanSort('vendor')" data-col="vendor">Hersteller <span class="sort-indicator" id="sort-vendor"></span></th>
+            <th>Dienste</th>
             <th>Status</th>
           </tr>
         </thead>

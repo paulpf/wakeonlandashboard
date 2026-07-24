@@ -617,6 +617,31 @@ body {
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* Service pills (port scan results) */
+.service-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.service-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: .67rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--svc-color, #6b7280) 40%, transparent);
+  background: color-mix(in srgb, var(--svc-color, #6b7280) 12%, transparent);
+  color: var(--svc-color, var(--text-2));
+  text-decoration: none;
+  cursor: default;
+  transition: background .15s, border-color .15s;
+  white-space: nowrap;
+}
+a.service-pill {
+  cursor: pointer;
+}
+a.service-pill:hover {
+  background: color-mix(in srgb, var(--svc-color, #6b7280) 22%, transparent);
+  border-color: color-mix(in srgb, var(--svc-color, #6b7280) 60%, transparent);
+}
+
 /* ══════════════════════════════════════
    EMPTY STATE
 ══════════════════════════════════════ */

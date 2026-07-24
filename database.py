@@ -58,13 +58,19 @@ def init_db():
                 mac         TEXT,
                 hostname    TEXT,
                 vendor      TEXT,
+                open_ports  TEXT DEFAULT '[]',
                 scanned_at  TEXT DEFAULT (datetime('now'))
             );
         """)
-        # migration: add broadcast column if missing (existing databases)
-        cols = {row[1] for row in db.execute("PRAGMA table_info(devices)").fetchall()}
-        if "broadcast" not in cols:
+        # migrations for existing databases
+        dev_cols = {row[1] for row in db.execute("PRAGMA table_info(devices)").fetchall()}
+        if "broadcast" not in dev_cols:
             db.execute("ALTER TABLE devices ADD COLUMN broadcast TEXT DEFAULT ''")
+        if "open_ports" not in dev_cols:
+            db.execute("ALTER TABLE devices ADD COLUMN open_ports TEXT DEFAULT '[]'")
+        scan_cols = {row[1] for row in db.execute("PRAGMA table_info(scan_results)").fetchall()}
+        if "open_ports" not in scan_cols:
+            db.execute("ALTER TABLE scan_results ADD COLUMN open_ports TEXT DEFAULT '[]'")
 
 
 # ---------- devices ----------
@@ -88,21 +94,24 @@ def get_device(device_id: int) -> dict | None:
 
 def upsert_device(name: str, mac: str, ip: str = "", broadcast: str = "",
                   group_name: str = "Default", notes: str = "",
-                  port_checks: list = None) -> int:
+                  port_checks: list = None, open_ports: list = None) -> int:
     mac = mac.upper().replace("-", ":").strip()
     port_checks_json = json.dumps(port_checks or [])
     with get_db() as db:
-        existing = db.execute("SELECT id FROM devices WHERE mac=?", (mac,)).fetchone()
+        existing = db.execute("SELECT id, open_ports FROM devices WHERE mac=?", (mac,)).fetchone()
         if existing:
+            # preserve existing open_ports if not explicitly provided
+            ports_json = json.dumps(open_ports) if open_ports is not None else (existing["open_ports"] or "[]")
             db.execute("""
-                UPDATE devices SET name=?, ip=?, broadcast=?, group_name=?, notes=?, port_checks=?
+                UPDATE devices SET name=?, ip=?, broadcast=?, group_name=?, notes=?, port_checks=?, open_ports=?
                 WHERE mac=?
-            """, (name, ip, broadcast, group_name, notes, port_checks_json, mac))
+            """, (name, ip, broadcast, group_name, notes, port_checks_json, ports_json, mac))
             return existing["id"]
+        ports_json = json.dumps(open_ports or [])
         cur = db.execute("""
-            INSERT INTO devices (name, mac, ip, broadcast, group_name, notes, port_checks)
-            VALUES (?,?,?,?,?,?,?)
-        """, (name, mac, ip, broadcast, group_name, notes, port_checks_json))
+            INSERT INTO devices (name, mac, ip, broadcast, group_name, notes, port_checks, open_ports)
+            VALUES (?,?,?,?,?,?,?,?)
+        """, (name, mac, ip, broadcast, group_name, notes, port_checks_json, ports_json))
         return cur.lastrowid
 
 
@@ -190,12 +199,27 @@ def save_scan_results(hosts: list[dict]) -> None:
     with get_db() as db:
         db.execute("DELETE FROM scan_results")
         db.executemany("""
-            INSERT INTO scan_results (ip, mac, hostname, vendor)
-            VALUES (:ip, :mac, :hostname, :vendor)
-        """, hosts)
+            INSERT INTO scan_results (ip, mac, hostname, vendor, open_ports)
+            VALUES (:ip, :mac, :hostname, :vendor, :open_ports)
+        """, [{**h, "open_ports": json.dumps(h.get("open_ports") or [])} for h in hosts])
 
 
 def get_scan_results() -> list[dict]:
     with get_db() as db:
         rows = db.execute("SELECT * FROM scan_results ORDER BY ip").fetchall()
     return [dict(r) for r in rows]
+
+
+def save_port_scan(port_map: dict[str, list[int]]) -> None:
+    """Persist port scan results: update scan_results and devices by IP."""
+    with get_db() as db:
+        for ip, ports in port_map.items():
+            ports_json = json.dumps(ports)
+            db.execute(
+                "UPDATE scan_results SET open_ports=? WHERE ip=?",
+                (ports_json, ip),
+            )
+            db.execute(
+                "UPDATE devices SET open_ports=? WHERE ip=?",
+                (ports_json, ip),
+            )

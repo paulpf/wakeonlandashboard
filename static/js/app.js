@@ -14,6 +14,34 @@ let pollTimer    = null;
 let scanSortCol  = "ip";
 let scanSortAsc  = true;
 
+// ── Service map (port → display info) ──
+const SERVICE_MAP = {
+  22:   { label: "SSH",      color: "#6b7280", url: null },
+  80:   { label: "HTTP",     color: "#3b82f6", url: "http://{ip}" },
+  443:  { label: "HTTPS",    color: "#10b981", url: "https://{ip}" },
+  3389: { label: "RDP",      color: "#8b5cf6", url: null },
+  5900: { label: "VNC",      color: "#f59e0b", url: null },
+  8006: { label: "Proxmox",  color: "#e57000", url: "https://{ip}:8006" },
+  8080: { label: "HTTP-Alt", color: "#3b82f6", url: "http://{ip}:8080" },
+  8443: { label: "HTTPS-Alt",color: "#10b981", url: "https://{ip}:8443" },
+  9090: { label: "Cockpit",  color: "#06b6d4", url: "https://{ip}:9090" },
+};
+
+function servicePills(openPortsJson, ip) {
+  let ports;
+  try { ports = JSON.parse(openPortsJson || "[]"); } catch { ports = []; }
+  if (!ports.length) return "";
+  return ports.map(p => {
+    const svc   = SERVICE_MAP[p];
+    const label = svc ? svc.label : `Port ${p}`;
+    const color = svc ? svc.color : "var(--text-3)";
+    const url   = svc?.url ? svc.url.replace("{ip}", encodeURIComponent(ip)) : null;
+    return url
+      ? `<a class="service-pill" href="${esc(url)}" target="_blank" rel="noopener" style="--svc-color:${color}" title="Öffne ${label}" onclick="event.stopPropagation()">${esc(label)}</a>`
+      : `<span class="service-pill" style="--svc-color:${color}" title="Port ${p}">${esc(label)}</span>`;
+  }).join("");
+}
+
 // ── API ──
 async function api(method, path, body) {
   const res = await fetch(path, {
@@ -288,6 +316,7 @@ function deviceCard(d) {
       </div>` : ""}
     </div>
     ${portPills ? `<div class="port-pills">${portPills}</div>` : ""}
+    ${servicePills(d.open_ports, d.ip || "") ? `<div class="service-pills">${servicePills(d.open_ports, d.ip || "")}</div>` : ""}
     ${d.notes ? `<div class="device-notes">${esc(d.notes)}</div>` : ""}
   </div>
   <div class="card-actions">
@@ -511,11 +540,26 @@ async function loadScanResults() {
     const data = await api("GET", "/api/scan/results");
     scanResults = data.results || [];
     const status = data.status || {};
+    const pst    = data.port_scan_status || {};
     renderScanTable();
     let txt = "Bereit";
     if (status.running) txt = "Scan läuft…";
     else if (status.last_run) txt = `Letzter Scan: ${fmt_dt(status.last_run)} · ${status.found} Geräte`;
     document.getElementById("scan-status").textContent = txt;
+
+    const pEl = document.getElementById("port-scan-status");
+    if (pEl) {
+      if (pst.running) {
+        pEl.style.display = "";
+        pEl.textContent = "Port-Scan läuft…";
+      } else if (pst.last_run) {
+        pEl.style.display = "";
+        pEl.textContent = `Ports: ${fmt_dt(pst.last_run)} · ${pst.scanned} IPs`;
+      } else {
+        pEl.style.display = "none";
+      }
+    }
+
     const cnt = document.getElementById("scan-count");
     if (cnt) cnt.textContent = scanResults.length ? `${scanResults.length} Hosts` : "";
   } catch (e) {
@@ -560,16 +604,18 @@ function renderScanTable() {
   const tbody = document.getElementById("scan-tbody");
   const knownMacs = new Set(devices.map(d => (d.mac || "").toUpperCase()));
   if (!scanResults.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">Noch kein Scan durchgeführt. Klicke "Scan starten".</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">Noch kein Scan durchgeführt. Klicke "Scan starten".</td></tr>`;
     return;
   }
   tbody.innerHTML = sortedScanResults().map(h => {
-    const already = knownMacs.has((h.mac || "").toUpperCase());
-    const statusHtml = h.is_online !== undefined
-      ? `<span class="status-pill ${h.is_online ? 'online' : 'offline'}" style="display:inline-flex">
-           <span class="status-dot ${h.is_online ? 'online' : 'offline'}"></span>
-           ${h.is_online ? 'Online' : 'Offline'}</span>`
-      : `<span style="color:var(--text-3);font-size:.78rem">—</span>`;
+    const already  = knownMacs.has((h.mac || "").toUpperCase());
+    const pills    = servicePills(h.open_ports, h.ip || "");
+    const pillsHtml = pills
+      ? `<div class="service-pills">${pills}</div>`
+      : `<span style="color:var(--text-4);font-size:.75rem">—</span>`;
+    const actionHtml = already
+      ? `<span style="color:var(--green);font-size:.78rem;font-weight:600">✓ Verwaltet</span>`
+      : `<button class="btn btn-secondary btn-sm" onclick="prefillFromScan('${esc(h.mac)}','${esc(h.ip)}','${esc(h.hostname || '')}')">+ Hinzufügen</button>`;
     return `<tr>
       <td>
         <input type="checkbox" class="scan-cb" style="accent-color:var(--blue)"
@@ -580,10 +626,8 @@ function renderScanTable() {
       <td class="mono" style="color:var(--text-2)">${esc(h.mac || "—")}</td>
       <td>${esc(h.hostname || "—")}</td>
       <td style="color:var(--text-3)">${esc(h.vendor || "—")}</td>
-      <td>${already
-        ? `<span style="color:var(--green);font-size:.78rem;font-weight:600">✓ Verwaltet</span>`
-        : `<button class="btn btn-secondary btn-sm" onclick="prefillFromScan('${esc(h.mac)}','${esc(h.ip)}','${esc(h.hostname || '')}')">+ Hinzufügen</button>`
-      }</td>
+      <td>${pillsHtml}</td>
+      <td>${actionHtml}</td>
     </tr>`;
   }).join("");
 
@@ -643,6 +687,31 @@ async function startScan() {
     toast("Scan konnte nicht gestartet werden: " + e.message, "error");
     btn.disabled = false;
     btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Scan starten`;
+  }
+}
+
+async function startPortScan() {
+  const btn = document.getElementById("port-scan-btn");
+  const pEl = document.getElementById("port-scan-status");
+  btn.disabled = true;
+  if (pEl) { pEl.style.display = ""; pEl.textContent = "Port-Scan läuft…"; }
+  try {
+    await api("POST", "/api/scan/ports");
+    const t = setInterval(async () => {
+      try {
+        const st = await api("GET", "/api/scan/ports/status");
+        if (!st.running) {
+          clearInterval(t);
+          btn.disabled = false;
+          if (pEl) pEl.textContent = `Ports: ${fmt_dt(st.last_run)} · ${st.scanned} IPs`;
+          toast(`Port-Scan abgeschlossen · ${st.scanned} IPs gescannt`, "success");
+          loadScanResults();
+        }
+      } catch (ignore) { /* poll — errors are transient */ }
+    }, 3000);
+  } catch (e) {
+    toast("Port-Scan konnte nicht gestartet werden: " + e.message, "error");
+    btn.disabled = false;
   }
 }
 
