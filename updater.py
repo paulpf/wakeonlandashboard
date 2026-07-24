@@ -36,9 +36,13 @@ def get_latest_release() -> dict | None:
 
 def is_update_available() -> dict:
     local = get_local_version()
+    cfg = load_config()
+    repo = cfg.get("github_repo", "")
+    if not repo or repo == "yourusername/wakeonlandashboard":
+        return {"available": False, "local": local, "remote": None, "not_configured": True}
     remote = get_latest_release()
     if not remote:
-        return {"available": False, "local": local, "remote": None}
+        return {"available": False, "local": local, "remote": None, "not_configured": True}
     if "error" in remote:
         return {"available": False, "local": local, "remote": None, "error": remote["error"]}
     remote_tag = remote["tag"].lstrip("v")

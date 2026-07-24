@@ -861,6 +861,14 @@ async function checkUpdate() {
         &ensp;<a href="${esc(info.remote.url)}" target="_blank" style="color:var(--blue);font-size:.8rem">Release-Notes →</a>
         <br><span style="font-size:.78rem;color:var(--text-3)">Aktuell installiert: v${esc(info.local)}</span>`;
       cmds_box.style.display = "";
+    } else if (info.not_configured) {
+      badge.classList.add("hidden");
+      info_box.innerHTML = `<span style="color:var(--text-3)">⚠ GitHub-Repo nicht konfiguriert — bitte in den Einstellungen eintragen.</span>`;
+      cmds_box.style.display = "none";
+    } else if (info.error) {
+      badge.classList.add("hidden");
+      info_box.innerHTML = `<span style="color:var(--red)">Fehler: ${esc(info.error)}</span>`;
+      cmds_box.style.display = "none";
     } else {
       badge.classList.add("hidden");
       info_box.innerHTML = `<span style="color:var(--green)">✓ Aktuell (v${esc(info.local)})</span>`;
