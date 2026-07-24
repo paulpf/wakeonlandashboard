@@ -568,45 +568,6 @@ function schedPreset(type, builderId = "schedule") {
   });
 }
 
-function buildCronFromUI() {
-  const hour   = document.getElementById("sched-hour").value;
-  const minute = document.getElementById("sched-minute").value;
-  const active = [...document.querySelectorAll(".sched-day-btn.active")].map(b => +b.dataset.day);
-  if (!active.length) return null;
-  const days = active.length === 7 ? "*" : active.sort((a, b) => a - b).join(",");
-  return `${minute} ${hour} * * ${days}`;
-}
-
-function parseCronToUI(cronExpr, builderId = "sched") {
-  // Parse a cron expression and populate the builder UI elements
-  if (!cronExpr) return;
-  const parts = cronExpr.trim().split(/\s+/);
-  if (parts.length !== 5) return;
-  
-  const [min, hour, , , dow] = parts;
-  
-  // Set hour and minute
-  const hourEl = document.getElementById(`${builderId}-hour`);
-  const minEl = document.getElementById(`${builderId}-minute`);
-  if (hourEl) hourEl.value = hour;
-  if (minEl) minEl.value = min;
-  
-  // Clear existing day buttons
-  document.querySelectorAll(`.${builderId}-day-btn`).forEach(b => b.classList.remove("active"));
-  
-  // Parse and set day buttons
-  if (dow === "*") {
-    // All days
-    document.querySelectorAll(`.${builderId}-day-btn`).forEach(b => b.classList.add("active"));
-  } else {
-    const dayNums = dow.split(",").map(d => parseInt(d.trim()));
-    dayNums.forEach(dayNum => {
-      const btn = document.querySelector(`.${builderId}-day-btn[data-day="${dayNum}"]`);
-      if (btn) btn.classList.add("active");
-    });
-  }
-}
-
 function describeCron(expr) {
   if (!expr) return expr;
   const parts = expr.trim().split(/\s+/);
