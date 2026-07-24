@@ -150,7 +150,7 @@ function tickClock() {
     // serverTime format: "24.07.2026 23:57:01"
     const [dateStr, timeStr] = serverTime.split(" ");
     const [hours, minutes, seconds] = timeStr.split(":");
-    el.textContent = `${localTime} | LXC ${hours}:${seconds}`;
+    el.textContent = `${localTime} | LXC ${hours}:${minutes}`;
     el.title = `Lokale Zeit: ${localTime}\nLXC Container: ${serverTime}`;
   } else {
     // Fallback to local time only
