@@ -34,12 +34,12 @@ fi
 ./venv/bin/pip install -r requirements.txt -q
 
 # 4. wol-updater ausfuehrbar machen
-chmod +x "$INSTALL_DIR/wol-updater.sh"
+chmod +x "$INSTALL_DIR/deploy/wol-updater.sh"
 
 # 5. Systemd-Services einrichten
-cp wol-dashboard.service /etc/systemd/system/
-cp wol-updater.service   /etc/systemd/system/
-cp wol-updater.timer     /etc/systemd/system/
+cp deploy/wol-dashboard.service /etc/systemd/system/
+cp deploy/wol-updater.service   /etc/systemd/system/
+cp deploy/wol-updater.timer     /etc/systemd/system/
 systemctl daemon-reload
 
 systemctl enable "$SERVICE_NAME"

@@ -65,7 +65,9 @@ echo "Python-Abhaengigkeiten installiert."
 
 # --- Systemd-Service einrichten ---
 echo ""
-cp "$INSTALL_DIR/wol-dashboard.service" /etc/systemd/system/
+cp "$INSTALL_DIR/deploy/wol-dashboard.service" /etc/systemd/system/
+cp "$INSTALL_DIR/deploy/wol-updater.service" /etc/systemd/system/
+cp "$INSTALL_DIR/deploy/wol-updater.timer" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable "$SERVICE_NAME" --quiet
 systemctl restart "$SERVICE_NAME"
