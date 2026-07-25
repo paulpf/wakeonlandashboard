@@ -14,6 +14,12 @@ import updater
 from config import load_config, save_config
 from routes import devices_bp
 from routes.helpers import broadcast_for
+from constants import (
+    EVENT_DEVICE_STATUS_CHANGED, EVENT_DEVICE_WAKING_UP,
+    TRIGGER_MANUAL, TRIGGER_BULK, TRIGGER_SCHEDULE,
+    POLL_INTERVAL_FAST, POLL_INTERVAL_NORMAL, SCAN_INTERVAL_NETWORK, FAST_MODE_TIMEOUT,
+    SCHEDULER_TRIGGER_TYPE
+)
 
 app = Flask(__name__)
 CORS(app)
@@ -71,7 +77,7 @@ def _run_status_check():
             
             # Broadcast status change event only if status actually changed
             if old_status != online:
-                _broadcast_device_event("device_status_changed", dev["id"], {"online": online})
+                _broadcast_device_event(EVENT_DEVICE_STATUS_CHANGED, dev["id"], {"online": online})
         except Exception as e:
             print(f"⚠ Status check failed for {dev.get('name', 'Unknown')}: {str(e)}")
     
@@ -85,7 +91,7 @@ def _run_status_check():
     # Check for failsafe timeout: if fast mode was active for >5 min, force back to normal
     if _fast_mode_started_at:
         time_in_fast_mode = (datetime.now(timezone.utc) - _fast_mode_started_at).total_seconds()
-        if time_in_fast_mode > 300:  # 5 minutes failsafe
+        if time_in_fast_mode > FAST_MODE_TIMEOUT:
             has_waking = False
             print(f"⚠ Fast polling timeout (5 min exceeded) — forcing back to normal mode")
     
@@ -96,17 +102,17 @@ def _run_status_check():
     
     try:
         if has_waking and not _status_check_fast_mode:
-            # Switch to fast mode (10 seconds)
-            job.reschedule(trigger="interval", seconds=10)
+            # Switch to fast mode
+            job.reschedule(trigger=SCHEDULER_TRIGGER_TYPE, seconds=POLL_INTERVAL_FAST)
             _status_check_fast_mode = True
             _fast_mode_started_at = datetime.now(timezone.utc)
-            print("→ Fast status polling enabled (10s)")
+            print(f"→ Fast status polling enabled ({POLL_INTERVAL_FAST}s)")
         elif not has_waking and _status_check_fast_mode:
-            # Switch back to normal mode (60 seconds)
-            job.reschedule(trigger="interval", seconds=60)
+            # Switch back to normal mode
+            job.reschedule(trigger=SCHEDULER_TRIGGER_TYPE, seconds=POLL_INTERVAL_NORMAL)
             _status_check_fast_mode = False
             _fast_mode_started_at = None
-            print("→ Status polling back to normal (60s)")
+            print(f"→ Status polling back to normal ({POLL_INTERVAL_NORMAL}s)")
     except Exception as e:
         print(f"✗ Failed to reschedule status check: {str(e)} — keeping current interval")
 
@@ -127,7 +133,7 @@ def _run_network_scan():
 
 
 def _enable_fast_polling():
-    """Activate fast polling (10 sec) if not already active."""
+    """Activate fast polling if not already active."""
     global _status_check_fast_mode, _fast_mode_started_at
     
     if _status_check_fast_mode:
@@ -138,15 +144,15 @@ def _enable_fast_polling():
         return  # Job was removed
     
     try:
-        job.reschedule(trigger="interval", seconds=10)
+        job.reschedule(trigger=SCHEDULER_TRIGGER_TYPE, seconds=POLL_INTERVAL_FAST)
         _status_check_fast_mode = True
         _fast_mode_started_at = datetime.now(timezone.utc)
-        print("→ Fast status polling enabled (10s)")
+        print(f"→ Fast status polling enabled ({POLL_INTERVAL_FAST}s)")
     except Exception as e:
         print(f"✗ Failed to enable fast polling: {str(e)}")
 
 
-def _send_wake_packet(device_id: int, triggered_by: str = "manual") -> tuple[bool, str]:
+def _send_wake_packet(device_id: int, triggered_by: str = TRIGGER_MANUAL) -> tuple[bool, str]:
     """
     Consolidated WoL packet sending logic.
     
@@ -172,7 +178,7 @@ def _send_wake_packet(device_id: int, triggered_by: str = "manual") -> tuple[boo
         )
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by=triggered_by, success=True)
         db.set_wake_request(dev["mac"])  # Mark as "waking up"
-        _broadcast_device_event("device_waking_up", device_id, {"triggered_by": triggered_by})
+        _broadcast_device_event(EVENT_DEVICE_WAKING_UP, device_id, {"triggered_by": triggered_by})
         return True, ""
     except Exception as e:
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by=triggered_by, success=False)
@@ -183,7 +189,7 @@ def _send_wake_packet(device_id: int, triggered_by: str = "manual") -> tuple[boo
 
 def _scheduled_wake(device_id: int):
     """Execute a scheduled wake for a device."""
-    success, error = _send_wake_packet(device_id, triggered_by="schedule")
+    success, error = _send_wake_packet(device_id, triggered_by=TRIGGER_SCHEDULE)
     if success:
         dev = db.get_device(device_id)
         if dev:
@@ -253,9 +259,9 @@ def _rebuild_schedules():
 def startup():
     db.init_db()
     cfg = load_config()
-    interval = cfg.get("scan_interval_seconds", 60)
-    scheduler.add_job(_run_status_check, "interval", seconds=interval, id="status_check")
-    scheduler.add_job(_run_network_scan, "interval", seconds=300, id="net_scan")
+    interval = cfg.get("scan_interval_seconds", POLL_INTERVAL_NORMAL)
+    scheduler.add_job(_run_status_check, SCHEDULER_TRIGGER_TYPE, seconds=interval, id="status_check")
+    scheduler.add_job(_run_network_scan, SCHEDULER_TRIGGER_TYPE, seconds=SCAN_INTERVAL_NETWORK, id="net_scan")
     _rebuild_schedules()
     scheduler.start()
     # Run initial status check to ensure devices have correct online/offline status on startup
@@ -276,7 +282,7 @@ def api_wake_device(device_id):
     if not dev:
         return jsonify({"error": "not found"}), 404
     
-    success, error = _send_wake_packet(device_id, triggered_by="manual")
+    success, error = _send_wake_packet(device_id, triggered_by=TRIGGER_MANUAL)
     if success:
         _enable_fast_polling()  # Activate fast polling to show "Waking up" status
         return jsonify({"ok": True})
@@ -296,7 +302,7 @@ def api_wake_bulk():
             # Skip non-existent devices (don't add to results)
             continue
         
-        success, error = _send_wake_packet(dev_id, triggered_by="bulk")
+        success, error = _send_wake_packet(dev_id, triggered_by=TRIGGER_BULK)
         if success:
             results.append({"id": dev_id, "ok": True})
         else:
@@ -428,8 +434,8 @@ def api_save_config():
     save_config(cfg)
     # reschedule status check with new interval
     try:
-        scheduler.reschedule_job("status_check", trigger="interval",
-                                 seconds=cfg.get("scan_interval_seconds", 60))
+        scheduler.reschedule_job("status_check", trigger=SCHEDULER_TRIGGER_TYPE,
+                                 seconds=cfg.get("scan_interval_seconds", POLL_INTERVAL_NORMAL))
     except Exception:
         pass
     return jsonify({"ok": True})
