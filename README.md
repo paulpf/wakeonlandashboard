@@ -1,46 +1,85 @@
 # ⚡ WoL Dashboard
 
-Ein modernes Wake-on-LAN Dashboard für den Browser — läuft auf einem Proxmox LXC Container.
+[![GitHub Release](https://img.shields.io/github/v/release/paulpf/wakeonlandashboard?label=version)](https://github.com/paulpf/wakeonlandashboard/releases)
+[![Tests](https://github.com/paulpf/wakeonlandashboard/workflows/Tests/badge.svg)](https://github.com/paulpf/wakeonlandashboard/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Ein modernes, vollständig konfigurierbares **Wake-on-LAN (WoL) Dashboard** für den Browser — optimiert für Proxmox LXC Container.
 
 ![Dashboard Screenshot](docs/screenshot.png)
 
-## Features
+---
 
-| Feature | Beschreibung |
-|---|---|
-| **Netz-Scanner** | ARP-Scan des lokalen Netzwerks, entdeckte Geräte direkt hinzufügen |
-| **Dashboard** | Alle verwalteten Geräte auf einen Blick — Online/Offline-Status |
-| **Wake-on-LAN** | Einzelne oder mehrere Geräte per Klick wecken |
-| **Gruppen** | Geräte in Gruppen organisieren (Server, Workstations, NAS, …) |
-| **Geplante Weckzeiten** | Cron-basierte Schedules (z.B. jeden Morgen 07:00) |
-| **Wake-Verlauf** | Protokoll aller Weck-Ereignisse inkl. CSV-Export |
-| **Browser-Notifications** | Benachrichtigung wenn ein Gerät nach dem Wecken online kommt |
-| **Import/Export** | Geräteliste als JSON sichern und wiederherstellen |
-| **Dark/Light Mode** | Wechsel per Klick, wird gespeichert |
-| **Port-Scanner** | Scannt offene Ports aller bekannten IPs — zeigt Dienste als farbige Pills (SSH, RDP, Proxmox, Cockpit …) |
-| **Update-Check** | Prüft automatisch ob eine neue GitHub-Version verfügbar ist |
-| **REST API** | Alle Funktionen per HTTP-API erreichbar (z.B. für Home Assistant) |
-| **Konfigurierbar** | Netz-Bereich, Broadcast-Adresse, WoL-Port, Intervall anpassbar |
+## 📑 Inhaltsverzeichnis
+
+- [Features](#-features)
+- [Systemanforderungen](#-systemanforderungen)
+- [Installation](#-installation)
+  - [Schnellstart (Proxmox LXC)](#schnellstart--proxmox-lxc)
+  - [Offline-Installation](#installation-ohne-internet-offline--air-gap)
+- [Konfiguration](#-konfiguration)
+- [REST API](#-rest-api)
+- [Entwicklung](#-entwicklung)
+- [Troubleshooting](#-troubleshooting)
 
 ---
 
-## Schnellstart — Proxmox LXC
+## ✨ Features
 
-### 1. LXC Container erstellen
+| Feature | Beschreibung |
+|---|---|
+| **Netz-Scanner** | ARP-Scan des lokalen Netzwerks mit automatischer Geräte-Erkennung |
+| **Live-Dashboard** | Echtzeit Online/Offline-Status aller verwalteten Geräte |
+| **Wake-on-LAN** | Einzelne oder Bulk-Weckzeiten mit Verlauf-Protokollierung |
+| **Geplante Weckzeiten** | Cron-basierte Schedules (z.B. Mo-Fr 07:00 Uhr) |
+| **Port-Scanner** | Erkennt offene Services (SSH, RDP, Proxmox, Cockpit, …) mit Farbkodierung |
+| **Wake-Verlauf** | Vollständiges Weck-Protokoll mit CSV-Export |
+| **Browser-Notifications** | Benachrichtigung sobald gewecktes Gerät online kommt |
+| **Dark/Light Mode** | Theme-Wechsel, wird lokal gespeichert |
+| **Import/Export** | Geräte-Backups als JSON |
+| **REST API** | Alle Funktionen per HTTP-API (Home Assistant-kompatibel) |
+| **Update-Check** | Automatische GitHub-Release-Überwachung |
+| **Konfigurierbar** | Netzwerk-Bereich, Broadcast, WoL-Port, Scan-Intervalle, … |
 
-In der Proxmox-Oberfläche:
+---
 
-1. **Datacenter → Create CT**
-2. Template: **Debian 13** (Trixie) oder Debian 12 (Bookworm)
+## 📋 Systemanforderungen
+
+### Server (LXC Container)
+- **OS:** Debian 12+ / Ubuntu 22.04+
+- **RAM:** 256 MB Minimum (512 MB empfohlen)
+- **Disk:** 2 GB
+- **CPU:** 1 Core
+- **Python:** 3.11+
+
+### Client
+- Moderner Browser (Chrome, Firefox, Safari, Edge)
+- JavaScript aktiviert
+
+### Zielgeräte (WoL)
+- BIOS/UEFI-Feature WoL aktiviert
+- Netzwerkadapter unterstützt Magic Packets
+- Verbunden mit demselben Netzwerk (oder per Subnet-Broadcast)
+
+---
+
+## 🚀 Installation
+
+### Schnellstart — Proxmox LXC
+
+#### 1. LXC Container erstellen
+
+**Über Proxmox UI:**
+1. Datacenter → **Create CT**
+2. Template: **Debian 13** oder Debian 12
 3. Ressourcen (Minimum):
    - RAM: **256 MB** (512 MB empfohlen)
    - Disk: **2 GB**
    - CPU: **1 Core**
-4. **Netzwerk:** Bridge auf das LAN-Interface (z.B. `vmbr0`)
-5. ⚠️ **Wichtig:** Features → `nesting=1` aktivieren (für arp-scan)
+4. Netzwerk: Bridge → LAN-Interface (z.B. `vmbr0`)
+5. ⚠️ **Wichtig:** Features → `nesting=1` (erforderlich für arp-scan)
 
-Oder per CLI auf dem Proxmox-Host:
-
+**Oder per CLI:**
 ```bash
 pct create 200 local:vztmpl/debian-13-standard_13.0-1_amd64.tar.zst \
   --hostname wol-dashboard \
@@ -48,18 +87,15 @@ pct create 200 local:vztmpl/debian-13-standard_13.0-1_amd64.tar.zst \
   --rootfs local-lvm:4 \
   --net0 name=eth0,bridge=vmbr0,ip=dhcp \
   --features nesting=1 \
-  --unprivileged 1 \
   --start 1
 ```
 
-### 2. In den Container einloggen
-
+#### 2. Container-Shell starten
 ```bash
 pct enter 200
 ```
 
-### 3. Repository klonen und installieren
-
+#### 3. App installieren
 ```bash
 apt-get update && apt-get install -y git
 git clone https://github.com/paulpf/wakeonlandashboard.git /opt/wol-dashboard
@@ -67,85 +103,66 @@ cd /opt/wol-dashboard
 bash install.sh
 ```
 
-### 4. ⚠️ Zeitzone konfigurieren (KRITISCH für Schedules!)
+#### 4. ⚠️ Zeitzone konfigurieren (KRITISCH!)
 
-⚠️ **Wichtig:** Ohne korrekte Zeitzone funktionieren geplante Weckzeiten nicht!
+Geplante Weckzeiten funktionieren nur mit korrekter Zeitzone:
 
-**Aktuelle Einstellung prüfen:**
 ```bash
+# Aktuelle Zeitzone prüfen
 timedatectl
-```
 
-**Zeitzone auf Berlin setzen (oder anpassen):**
-```bash
+# Auf Berlin setzen (oder andere Zeitzone anpassen)
 timedatectl set-timezone Europe/Berlin
-```
 
-**Überprüfen und Service neu starten:**
-```bash
+# Überprüfen
 date
 systemctl restart wol-dashboard
 ```
 
-Die Zeit sollte nun z.B. `Fri 2026-07-24 23:31:19 CEST` anzeigen.
-
-### 5. Dashboard aufrufen
-
+#### 5. Dashboard öffnen
 ```
 http://<container-ip>:5000
 ```
 
-Die IP findest du mit `ip addr show eth0` im Container oder in Proxmox unter "Network".
+IP ermitteln: `ip addr show eth0` (Container) oder Proxmox UI.
 
 ---
 
-## Installation ohne Internet (Offline / Air-Gap)
+### Installation ohne Internet (Offline / Air-Gap)
 
-Für Proxmox-Server ohne Internet-Zugang gibt es ein Bundle-Skript.
-Benötigt wird nur ein Windows-PC **mit** Internet und WinSCP.
+Für Proxmox-Server ohne Internetzugang:
 
-### 1. Bundle auf Windows bauen
-
+#### 1. Bundle auf Windows bauen
 ```powershell
 cd w:\wakeonlandashboard
 .\build-offline-bundle.ps1
 ```
 
-Erzeugt `dist\wol-offline-v1.1.0.zip` — enthält App-Code + alle Python-Wheels.
+Erzeugt `dist\wol-offline-v1.3.0.zip` (App-Code + Python-Wheels).
 
-### 2. ZIP per WinSCP auf den LXC übertragen
+#### 2. ZIP per WinSCP übertragen
+- WinSCP → SFTP → LXC-IP, Port 22, User `root`
+- Datei nach `/tmp/` kopieren
 
-WinSCP → SFTP → LXC-IP, Port 22, User `root`  
-Datei nach `/tmp/` ziehen.
-
-### 3. Im LXC installieren
-
+#### 3. Im LXC installieren
 ```bash
 cd /tmp
-unzip wol-offline-v1.1.0.zip
-bash wol-offline-v1.1.0/offline-install.sh
+unzip wol-offline-v1.3.0.zip
+bash wol-offline-v1.3.0/offline-install.sh
 ```
 
-**Update:** exakt derselbe Ablauf — das Skript erkennt eine vorhandene Installation
-und überschreibt nur den App-Code. `data/` (Konfiguration + Datenbank) bleibt erhalten.
+Das Skript erkennt Updates automatisch und erhält `data/` (Konfiguration + Datenbank).
 
-### Voraussetzungen auf dem LXC
-
-Die Pakete `python3`, `python3-venv` und `unzip` müssen vorhanden sein.
-Das Installer-Skript prüft dies und gibt eine klare Fehlermeldung wenn etwas fehlt.
-
-Falls der LXC noch nie Internet hatte, diese drei `.deb`-Pakete separat besorgen
-(z.B. von [packages.debian.org](https://packages.debian.org)) und per WinSCP + `dpkg -i` einspielen.
+#### Voraussetzungen
+- `python3`, `python3-venv`, `unzip` muss vorhanden sein
+- Falls nicht: `.deb`-Pakete von [packages.debian.org](https://packages.debian.org) besorgen und mit `dpkg -i` einspielen
 
 ---
 
-## Manuelles Update
-
-Das Dashboard wird **nicht** per `git clone` deployed — Update daher per Tarball:
+### Manuelles Update
 
 ```bash
-# TAG durch die gewünschte Version ersetzen, z.B. v1.2.0
-TAG=v1.2.0
+TAG=v1.3.0  # Gewünschte Version
 
 cd /opt
 wget -q "https://github.com/paulpf/wakeonlandashboard/archive/refs/tags/${TAG}.tar.gz" -O wol-update.tar.gz
@@ -157,27 +174,25 @@ cd /opt/wol-dashboard
 systemctl restart wol-dashboard
 ```
 
-> Die genauen Befehle für die jeweils aktuelle Version werden im Dashboard unter
-> **Einstellungen → Updates** automatisch angezeigt sobald ein Update verfügbar ist.
+> Die genauen Befehle werden im Dashboard unter **Einstellungen → Updates** angezeigt.
 
 ---
 
-## Konfiguration
+## ⚙️ Konfiguration
 
-Die Konfiguration kann im Dashboard unter **Einstellungen** vorgenommen werden
-oder direkt in `data/config.json` bearbeitet werden.
+Konfiguration im Dashboard (**Einstellungen**) oder direkt in `data/config.json`:
 
 | Einstellung | Standard | Beschreibung |
 |---|---|---|
-| `scan_network` | `192.168.1.0/24` | Zu scannender Netzwerkbereich |
-| `broadcast_address` | `255.255.255.255` | WoL Broadcast-Adresse |
+| `scan_networks` | `["192.168.1.0/24"]` | Zu scannende Netzwerkbereiche (CIDR) |
+| `broadcast_address` | `255.255.255.255` | WoL Broadcast-Adresse (bei VLAN: Subnet-Broadcast) |
 | `wol_port` | `9` | UDP-Port für Magic Packets |
-| `scan_interval_seconds` | `60` | Status-Check Intervall |
-| `github_repo` | — | `user/repo` für Update-Checks |
+| `scan_interval_seconds` | `60` | Status-Check Intervall (Sekunden) |
+| `github_repo` | — | `user/repo` für automatische Update-Checks |
 
 ---
 
-## REST API
+## 🔌 REST API
 
 | Methode | Endpunkt | Beschreibung |
 |---|---|---|
@@ -186,20 +201,20 @@ oder direkt in `data/config.json` bearbeitet werden.
 | `PUT` | `/api/devices/{id}` | Gerät bearbeiten |
 | `DELETE` | `/api/devices/{id}` | Gerät entfernen |
 | `POST` | `/api/devices/{id}/wake` | Gerät wecken |
-| `POST` | `/api/wake/bulk` | Mehrere Geräte wecken (`{"ids":[1,2,3]}`) |
+| `POST` | `/api/wake/bulk` | Mehrere Geräte wecken |
+| `GET` | `/api/devices/{id}/schedules` | Schedules für Gerät |
+| `POST` | `/api/devices/{id}/schedules` | Schedule hinzufügen |
 | `GET` | `/api/scan/results` | Letzte Scan-Ergebnisse |
 | `POST` | `/api/scan/start` | Netz-Scan starten |
 | `POST` | `/api/scan/ports` | Port-Scan starten |
-| `GET` | `/api/scan/ports/status` | Port-Scan Status |
 | `GET` | `/api/history` | Wake-Verlauf |
-| `GET` | `/api/config` | Konfiguration abrufen |
+| `GET` | `/api/config` | Konfiguration |
 | `POST` | `/api/config` | Konfiguration speichern |
-| `GET` | `/api/update/check` | Update-Status prüfen |
+| `GET` | `/api/update/check` | Update-Status |
+| `GET` | `/api/events` | Server-Sent Events (Live-Updates) |
 
 ### Home Assistant Beispiel
-
 ```yaml
-# configuration.yaml
 rest_command:
   wake_pc:
     url: "http://192.168.1.100:5000/api/devices/1/wake"
@@ -208,48 +223,129 @@ rest_command:
 
 ---
 
-## Voraussetzungen für Wake-on-LAN
+## 💻 Entwicklung
 
-Das Zielgerät muss WoL unterstützen und aktiviert haben:
+### Tech Stack
+- **Backend:** Python 3.11+ / Flask 3.0
+- **Frontend:** Vanilla JavaScript + Bootstrap 5
+- **Scheduler:** APScheduler 3.10
+- **Database:** SQLite3 with WAL
+- **Package:** Modular Python Package Structure (src/)
 
-- **BIOS/UEFI:** Wake-on-LAN aktivieren
-- **Windows:** Gerätemanager → Netzwerkadapter → Energieverwaltung → "Gerät kann den Computer aus dem Ruhezustand aktivieren"
-- **Linux:** `ethtool -s eth0 wol g`
+### Lokale Entwicklung
+
+#### Vorbereitung
+```bash
+git clone https://github.com/paulpf/wakeonlandashboard.git
+cd wakeonlandashboard
+python -m venv .venv
+
+# Windows
+.\.venv\Scripts\Activate.ps1
+
+# Linux/Mac
+source .venv/bin/activate
+
+pip install -r requirements-dev.txt
+```
+
+#### App starten
+```bash
+python -m src
+# Dashboard: http://localhost:5000
+```
+
+#### Tests ausführen
+```bash
+pytest tests/ -v
+```
+
+### Projektstruktur
+```
+src/                      # Main package
+├── __main__.py           # Entry point (python -m src)
+├── app.py                # Flask application & endpoints
+├── config.py             # Configuration management
+├── constants.py          # App constants
+├── database.py           # SQLite CRUD operations
+├── lib/                  # Library modules
+│   ├── scanner.py        # Network scanning (ARP, ping, ports)
+│   ├── wol.py            # Wake-on-LAN packet sending
+│   └── updater.py        # GitHub release checking
+└── routes/               # Flask blueprints
+    ├── devices.py        # Device management endpoints
+    └── helpers.py        # Route utilities
+
+tests/                    # Pytest test suite (31 tests)
+static/                   # CSS, JavaScript
+templates/                # HTML templates
+data/                     # Runtime: config.json, wol.db (gitignored)
+```
+
+### Architektur-Prinzipien
+- **Relative Imports:** Package-interne Imports nutzen Relative Imports (z.B. `from .config import ...`)
+- **Separation of Concerns:** Logic (lib/), Routes (routes/), Config (config.py)
+- **No Shell Execution:** Updater nutzt nur GitHub API, keine `subprocess.run(["git", ...])` Calls
+- **Type Hints:** Neu-Code mit Type Hints schreiben
 
 ---
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
-**Geplante Weckzeiten (Schedules) funktionieren nicht?**
-⚠️ **Erste Prüfung:** Zeitzone im LXC-Container korrekt?
+### Geplante Weckzeiten (Schedules) funktionieren nicht
+⚠️ **Häufigste Ursache:** Falsche Zeitzone
+
 ```bash
 timedatectl
-# Sollte zeigen: Time zone: Europe/Berlin (oder deine Zeitzone)
-# Nicht: Time zone: Etc/UTC (das ist falsch!)
+# Sollte anzeigen: Time zone: Europe/Berlin (nicht: Etc/UTC!)
 
-# Falls falsch: Zeitzone setzen und Service neu starten
+# Falls nötig:
 timedatectl set-timezone Europe/Berlin
 systemctl restart wol-dashboard
 ```
 
-**Scan findet keine Geräte?**
+### Scan findet keine Geräte
 ```bash
-# arp-scan im Container testen
+# arp-scan testen
 arp-scan --localnet
-# Falls "permission denied": Container-Feature nesting=1 prüfen
+
+# Falls "permission denied": Container nesting=1 prüfen
+pct config 200 | grep nesting
 ```
 
-**WoL-Paket kommt nicht an?**
-- Broadcast-Adresse prüfen (bei VLANs: Subnet-Broadcast statt 255.255.255.255)
-- Firewall auf dem LXC prüfen: `ufw allow 9/udp`
+### WoL-Paket kommt nicht an
+- Broadcast-Adresse prüfen (bei VLAN: Subnet-Broadcast statt 255.255.255.255)
+- Zielgerät: BIOS/UEFI WoL aktiviert?
+- Firewall: `ufw allow 9/udp` (Port 9 ist WoL-Standard)
 
-**Service startet nicht?**
+### Service startet nicht
 ```bash
-journalctl -u wol-dashboard -n 50
+# Logs prüfen
+journalctl -u wol-dashboard -n 50 -f
+
+# Service Status
+systemctl status wol-dashboard
+```
+
+### Port bereits in Verwendung
+```bash
+# Port 5000 belegt? Anderen Port in systemd-Unit ändern
+# /etc/systemd/system/wol-dashboard.service
+
+systemctl daemon-reload
+systemctl restart wol-dashboard
 ```
 
 ---
 
-## Lizenz
+## 📄 Lizenz
 
 MIT License — frei verwendbar und anpassbar.
+
+---
+
+## 📞 Kontakt & Support
+
+Probleme? [GitHub Issues](https://github.com/paulpf/wakeonlandashboard/issues)
+
+Weitere Docs: [docs/](docs/)
