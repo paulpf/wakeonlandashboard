@@ -1,6 +1,7 @@
 import json
 import threading
 import queue
+import os
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request, render_template, Response
@@ -11,7 +12,7 @@ from . import database as db
 from .lib import scanner
 from .lib import wol as wol_mod
 from .lib import updater
-from .config import load_config, save_config
+from .config import load_config, save_config, BASE_DIR
 from .routes import devices_bp
 from .routes.helpers import broadcast_for
 from .constants import (
@@ -21,7 +22,10 @@ from .constants import (
     SCHEDULER_TRIGGER_TYPE
 )
 
-app = Flask(__name__)
+# Flask app with absolute paths for templates and static files
+template_dir = os.path.join(BASE_DIR, "templates")
+static_dir = os.path.join(BASE_DIR, "static")
+app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 CORS(app)
 
 # Register Flask blueprints
