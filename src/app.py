@@ -265,9 +265,9 @@ def startup():
     _rebuild_schedules()
     scheduler.start()
     # Run initial status check to ensure devices have correct online/offline status on startup
-    print("▶ Running initial status check...")
+    print("> Running initial status check...")
     _run_status_check()
-    print(f"✓ APScheduler started with {len(scheduler.get_jobs())} job(s)")
+    print(f"+ APScheduler started with {len(scheduler.get_jobs())} job(s)")
 
 
 # ---------------------------------------------------------------------------
