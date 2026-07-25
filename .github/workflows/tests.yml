@@ -29,6 +29,7 @@ jobs:
     - name: Run tests
       run: |
         export PYTHONPATH="${PYTHONPATH}:."
+        python -c "from database import init_db; init_db()"
         pytest tests/ -v --tb=short
 
     - name: Upload test results
