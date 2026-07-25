@@ -28,6 +28,7 @@ jobs:
 
     - name: Run tests
       run: |
+        export PYTHONPATH="${PYTHONPATH}:."
         pytest tests/ -v --tb=short
 
     - name: Upload test results
