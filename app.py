@@ -12,9 +12,14 @@ import scanner
 import wol as wol_mod
 import updater
 from config import load_config, save_config
+from routes import devices_bp
+from routes.helpers import broadcast_for
 
 app = Flask(__name__)
 CORS(app)
+
+# Register Flask blueprints
+app.register_blueprint(devices_bp)
 
 _scan_lock = threading.Lock()
 _scan_status = {"running": False, "last_run": None, "found": 0}
@@ -119,10 +124,6 @@ def _run_network_scan():
         _scan_status["last_run"] = datetime.now(timezone.utc).isoformat()
     finally:
         _scan_status["running"] = False
-
-
-def _broadcast_for(dev: dict, cfg: dict) -> str:
-    return dev.get("broadcast") or cfg.get("broadcast_address", "255.255.255.255")
 
 
 def _enable_fast_polling():
@@ -236,82 +237,8 @@ def startup():
 
 
 # ---------------------------------------------------------------------------
-# API — Devices
+# API — Devices (see routes/devices.py)
 # ---------------------------------------------------------------------------
-
-@app.get("/api/devices")
-def api_get_devices():
-    return jsonify(db.get_all_devices())
-
-
-@app.post("/api/devices")
-def api_add_device():
-    data = request.json or {}
-    if not data.get("mac") or not data.get("name"):
-        return jsonify({"error": "name and mac required"}), 400
-    
-    # Check if ports were already scanned for this IP
-    existing_ports = []
-    if data.get("ip"):
-        existing_ports = db.get_ports_from_scan(data["ip"])
-    
-    dev_id = db.upsert_device(
-        name=data["name"],
-        mac=data["mac"],
-        ip=data.get("ip", ""),
-        broadcast=data.get("broadcast", ""),
-        group_name=data.get("group_name", "Default"),
-        notes=data.get("notes", ""),
-        port_checks=data.get("port_checks", []),
-        open_ports=existing_ports if existing_ports else None,
-    )
-    
-    # If no ports were found from scan, scan them now in background
-    if data.get("ip") and not existing_ports:
-        t = threading.Thread(target=_scan_single_device_ports, args=(data["ip"],), daemon=True)
-        t.start()
-    
-    return jsonify({"id": dev_id}), 201
-
-
-@app.put("/api/devices/<int:device_id>")
-def api_update_device(device_id):
-    data = request.json or {}
-    dev = db.get_device(device_id)
-    if not dev:
-        return jsonify({"error": "not found"}), 404
-    new_ip = data.get("ip", dev["ip"])
-    old_ip = dev.get("ip", "")
-    
-    # Check if ports were already scanned for the new IP
-    open_ports_to_set = None
-    if new_ip and new_ip != old_ip:
-        existing_ports = db.get_ports_from_scan(new_ip)
-        open_ports_to_set = existing_ports if existing_ports else None
-    
-    db.upsert_device(
-        name=data.get("name", dev["name"]),
-        mac=dev["mac"],
-        ip=new_ip,
-        broadcast=data.get("broadcast", dev.get("broadcast", "")),
-        group_name=data.get("group_name", dev["group_name"]),
-        notes=data.get("notes", dev["notes"]),
-        port_checks=data.get("port_checks", json.loads(dev["port_checks"] or "[]")),
-        open_ports=open_ports_to_set,
-    )
-    
-    # If IP changed and no ports found from scan, scan them now in background
-    if new_ip and new_ip != old_ip and not open_ports_to_set:
-        t = threading.Thread(target=_scan_single_device_ports, args=(new_ip,), daemon=True)
-        t.start()
-    
-    return jsonify({"ok": True})
-
-
-@app.delete("/api/devices/<int:device_id>")
-def api_delete_device(device_id):
-    db.delete_device(device_id)
-    return jsonify({"ok": True})
 
 
 @app.post("/api/devices/<int:device_id>/wake")
@@ -323,7 +250,7 @@ def api_wake_device(device_id):
     try:
         wol_mod.send_magic_packet(
             dev["mac"],
-            _broadcast_for(dev, cfg),
+            broadcast_for(dev, cfg),
             cfg.get("wol_port", 9),
         )
         db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="manual", success=True)
@@ -347,7 +274,7 @@ def api_wake_bulk():
         if not dev:
             continue
         try:
-            wol_mod.send_magic_packet(dev["mac"], _broadcast_for(dev, cfg), cfg.get("wol_port", 9))
+            wol_mod.send_magic_packet(dev["mac"], broadcast_for(dev, cfg), cfg.get("wol_port", 9))
             db.log_wake(dev_id, dev["name"], dev["mac"], triggered_by="bulk", success=True)
             db.set_wake_request(dev["mac"])  # Mark as "waking up"
             _broadcast_device_event("device_waking_up", dev_id, {"triggered_by": "bulk"})
@@ -434,19 +361,6 @@ def _run_port_scan():
         _port_scan_status["last_run"] = datetime.now(timezone.utc).isoformat()
     finally:
         _port_scan_status["running"] = False
-
-
-def _scan_single_device_ports(ip: str) -> None:
-    """Scan ports on a single device IP (background task)."""
-    if not ip or not ip.strip():
-        return
-    try:
-        ports = scanner.scan_ports_for_ip(ip.strip())
-        if ports:
-            db.save_port_scan({ip.strip(): ports})
-            print(f"✓ Ports scanned for {ip}: {ports}")
-    except Exception as e:
-        print(f"⚠ Port scan failed for {ip}: {str(e)}")
 
 
 @app.post("/api/scan/ports")
