@@ -1,6 +1,6 @@
 import os
 import requests
-from config import load_config, BASE_DIR
+from ..config import load_config, BASE_DIR
 
 GITHUB_API_RELEASES = "https://api.github.com/repos/{repo}/releases/latest"
 GITHUB_API_TAGS = "https://api.github.com/repos/{repo}/tags"

@@ -1,7 +1,8 @@
 import os
 import json
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# BASE_DIR now points to src/ directory, so go up one level to project root
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DATA_DIR, "wol.db")
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")

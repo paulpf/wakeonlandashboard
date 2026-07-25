@@ -30,7 +30,7 @@ def test_wake_nonexistent_device(client, mock_wol):
 
 def test_wake_bulk_multiple_devices(client, mock_wol, mock_scheduler):
     """Test bulk wake with multiple devices."""
-    from database import upsert_device
+    from src.database import upsert_device
     
     # Add 3 test devices
     dev1 = upsert_device("PC1", "11:11:11:11:11:11", "192.168.1.10", "", "Test", "", [])
@@ -53,7 +53,7 @@ def test_wake_bulk_multiple_devices(client, mock_wol, mock_scheduler):
 
 def test_wake_bulk_partial_failure(client, mock_wol, mock_scheduler):
     """Test bulk wake with one invalid device ID."""
-    from database import upsert_device
+    from src.database import upsert_device
     
     dev1 = upsert_device("PC1", "11:11:11:11:11:11", "192.168.1.10", "", "Test", "", [])
     

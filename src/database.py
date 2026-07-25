@@ -2,7 +2,7 @@ import sqlite3
 import json
 from contextlib import contextmanager
 from datetime import datetime
-from config import DB_PATH
+from .config import DB_PATH
 
 
 @contextmanager

@@ -133,6 +133,7 @@ function dlBlob(content, mime, filename) {
 
 // ── Clock ──
 let serverTime = null;
+let lastTooltip = "";  // ← Cache für Tooltip um Flimmern zu vermeiden
 
 function tickClock() {
   const el = document.getElementById("topbar-clock");
@@ -151,11 +152,21 @@ function tickClock() {
     const [dateStr, timeStr] = serverTime.split(" ");
     const [hours, minutes, seconds] = timeStr.split(":");
     el.textContent = `${localTime} | LXC ${hours}:${minutes}`;
-    el.title = `Lokale Zeit: ${localTime}\nLXC Container: ${serverTime}`;
+    
+    // ← Tooltip nur aktualisieren wenn sich der Wert ändert (verhindert Flimmern beim Hover)
+    const newTooltip = `Lokale Zeit: ${localTime}\nLXC Container: ${serverTime}`;
+    if (lastTooltip !== newTooltip) {
+      el.title = newTooltip;
+      lastTooltip = newTooltip;
+    }
   } else {
     // Fallback to local time only
     el.textContent = localTime;
-    el.title = "Lokale Zeit (LXC nicht erreichbar)";
+    const newTooltip = "Lokale Zeit (LXC nicht erreichbar)";
+    if (lastTooltip !== newTooltip) {
+      el.title = newTooltip;
+      lastTooltip = newTooltip;
+    }
   }
 }
 
@@ -983,6 +994,7 @@ async function startPortScan() {
           if (pEl) pEl.textContent = `Ports: ${fmt_dt(st.last_run)} · ${st.scanned} IPs`;
           toast(`Port-Scan abgeschlossen · ${st.scanned} IPs gescannt`, "success");
           loadScanResults();
+          loadDevices();  // ← Neu: Devices aktualisieren damit Service-Pills angezeigt werden
         }
       } catch (ignore) { /* poll — errors are transient */ }
     }, 3000);

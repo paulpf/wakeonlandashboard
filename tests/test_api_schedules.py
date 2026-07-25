@@ -1,6 +1,6 @@
 """Tests for scheduler and schedule API endpoints."""
 import pytest
-from app import _convert_cron_dow
+from src.app import _convert_cron_dow
 
 
 class TestCronDayOfWeekConversion:

@@ -4,10 +4,10 @@ import json
 import threading
 from flask import Blueprint, jsonify, request
 
-import database as db
-import wol as wol_mod
-from config import load_config
-from routes.helpers import broadcast_for
+from .. import database as db
+from ..lib import wol as wol_mod
+from ..config import load_config
+from .helpers import broadcast_for
 
 devices_bp = Blueprint("devices", __name__)
 
@@ -19,7 +19,7 @@ devices_bp = Blueprint("devices", __name__)
 def _scan_single_device_ports(ip: str) -> None:
     """Scan ports on a single device IP (background task)."""
     # Import here to avoid circular dependency
-    import scanner
+    from ..lib import scanner
     
     if not ip or not ip.strip():
         return

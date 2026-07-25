@@ -1,11 +1,15 @@
 """Pytest fixtures for WoL Dashboard tests."""
 import os
+import sys
 import pytest
 from unittest.mock import MagicMock, patch
 
+# Add src to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 # Import app and database modules
-from app import app as flask_app
-import database as db
+from src.app import app as flask_app
+from src import database as db
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +46,7 @@ def client():
 @pytest.fixture
 def sample_device():
     """Insert a sample device in the test database."""
-    from database import upsert_device
+    from src.database import upsert_device
     
     dev_id = upsert_device(
         name="TestPC",
@@ -64,7 +68,7 @@ def sample_device():
 @pytest.fixture
 def sample_schedule(sample_device):
     """Insert a sample schedule for testing."""
-    from database import add_schedule
+    from src.database import add_schedule
     
     sched_id = add_schedule(
         device_id=sample_device["id"],
@@ -87,7 +91,7 @@ def mock_scanner(monkeypatch):
     mock.scan_ports_bulk.return_value = {}
     mock.scan_ports_for_ip.return_value = []
     
-    monkeypatch.setattr("app.scanner", mock)
+    monkeypatch.setattr("src.app.scanner", mock)
     return mock
 
 
@@ -96,7 +100,7 @@ def mock_wol(monkeypatch):
     """Mock WoL send_magic_packet to prevent actual network calls."""
     mock = MagicMock()
     
-    monkeypatch.setattr("app.wol_mod.send_magic_packet", mock)
+    monkeypatch.setattr("src.app.wol_mod.send_magic_packet", mock)
     return mock
 
 
@@ -111,5 +115,5 @@ def mock_scheduler(monkeypatch):
     mock_sched.get_job.return_value = None
     
     # Patch the global scheduler in app
-    monkeypatch.setattr("app.scheduler", mock_sched)
+    monkeypatch.setattr("src.app.scheduler", mock_sched)
     return mock_sched
