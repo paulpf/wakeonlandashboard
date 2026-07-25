@@ -146,22 +146,50 @@ def _enable_fast_polling():
         print(f"✗ Failed to enable fast polling: {str(e)}")
 
 
-def _scheduled_wake(device_id: int):
+def _send_wake_packet(device_id: int, triggered_by: str = "manual") -> tuple[bool, str]:
+    """
+    Consolidated WoL packet sending logic.
+    
+    Args:
+        device_id: Device to wake
+        triggered_by: Trigger source ("manual", "bulk", "schedule")
+    
+    Returns:
+        (success: bool, error_message: str or empty string)
+    """
     dev = db.get_device(device_id)
     if not dev:
-        print(f"⚠ Scheduled wake: Device {device_id} not found")
-        return
+        msg = f"Device {device_id} not found"
+        print(f"⚠ Wake: {msg}")
+        return False, msg
+    
     cfg = load_config()
     try:
-        wol_mod.send_magic_packet(dev["mac"], _broadcast_for(dev, cfg), cfg.get("wol_port", 9))
-        db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=True)
+        wol_mod.send_magic_packet(
+            dev["mac"],
+            broadcast_for(dev, cfg),
+            cfg.get("wol_port", 9),
+        )
+        db.log_wake(device_id, dev["name"], dev["mac"], triggered_by=triggered_by, success=True)
         db.set_wake_request(dev["mac"])  # Mark as "waking up"
-        _enable_fast_polling()  # Activate fast polling to show "Waking up" status
-        _broadcast_device_event("device_waking_up", device_id, {"triggered_by": "schedule"})
-        print(f"✓ Scheduled wake sent to {dev['name']} ({dev['mac']})")
+        _broadcast_device_event("device_waking_up", device_id, {"triggered_by": triggered_by})
+        return True, ""
     except Exception as e:
-        db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="schedule", success=False)
-        print(f"✗ Scheduled wake failed for {dev['name']}: {str(e)}")
+        db.log_wake(device_id, dev["name"], dev["mac"], triggered_by=triggered_by, success=False)
+        msg = str(e)
+        print(f"✗ Wake failed for {dev['name']}: {msg}")
+        return False, msg
+
+
+def _scheduled_wake(device_id: int):
+    """Execute a scheduled wake for a device."""
+    success, error = _send_wake_packet(device_id, triggered_by="schedule")
+    if success:
+        dev = db.get_device(device_id)
+        if dev:
+            print(f"✓ Scheduled wake sent to {dev['name']} ({dev['mac']})")
+        _enable_fast_polling()
+    # Error message already printed by _send_wake_packet()
 
 
 def _convert_cron_dow(dow: str) -> str:
@@ -243,44 +271,37 @@ def startup():
 
 @app.post("/api/devices/<int:device_id>/wake")
 def api_wake_device(device_id):
+    """Wake a single device."""
     dev = db.get_device(device_id)
     if not dev:
         return jsonify({"error": "not found"}), 404
-    cfg = load_config()
-    try:
-        wol_mod.send_magic_packet(
-            dev["mac"],
-            broadcast_for(dev, cfg),
-            cfg.get("wol_port", 9),
-        )
-        db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="manual", success=True)
-        db.set_wake_request(dev["mac"])  # Mark as "waking up"
+    
+    success, error = _send_wake_packet(device_id, triggered_by="manual")
+    if success:
         _enable_fast_polling()  # Activate fast polling to show "Waking up" status
-        _broadcast_device_event("device_waking_up", device_id, {"triggered_by": "manual"})
         return jsonify({"ok": True})
-    except Exception as e:
-        db.log_wake(device_id, dev["name"], dev["mac"], triggered_by="manual", success=False)
-        return jsonify({"error": str(e)}), 500
+    else:
+        return jsonify({"error": error}), 500
 
 
 @app.post("/api/wake/bulk")
 def api_wake_bulk():
+    """Wake multiple devices at once."""
     data = request.json or {}
     ids = data.get("ids", [])
-    cfg = load_config()
     results = []
     for dev_id in ids:
         dev = db.get_device(dev_id)
         if not dev:
+            # Skip non-existent devices (don't add to results)
             continue
-        try:
-            wol_mod.send_magic_packet(dev["mac"], broadcast_for(dev, cfg), cfg.get("wol_port", 9))
-            db.log_wake(dev_id, dev["name"], dev["mac"], triggered_by="bulk", success=True)
-            db.set_wake_request(dev["mac"])  # Mark as "waking up"
-            _broadcast_device_event("device_waking_up", dev_id, {"triggered_by": "bulk"})
+        
+        success, error = _send_wake_packet(dev_id, triggered_by="bulk")
+        if success:
             results.append({"id": dev_id, "ok": True})
-        except Exception as e:
-            results.append({"id": dev_id, "ok": False, "error": str(e)})
+        else:
+            results.append({"id": dev_id, "ok": False, "error": error})
+    
     _enable_fast_polling()  # Activate fast polling to show "Waking up" status for all
     return jsonify(results)
 
