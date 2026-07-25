@@ -163,6 +163,24 @@ def _scheduled_wake(device_id: int):
         print(f"✗ Scheduled wake failed for {dev['name']}: {str(e)}")
 
 
+def _convert_cron_dow(dow: str) -> str:
+    """Convert standard Unix cron day-of-week (Sun=0, Mon=1, ..., Sat=6) to
+    APScheduler's ISO 8601 convention (Mon=0, Tue=1, ..., Sat=5, Sun=6).
+    Formula: apscheduler_value = (cron_value + 6) % 7
+    Handles '*', comma-separated values, and ranges (e.g. '1-5').
+    """
+    if dow == '*':
+        return dow
+    result = []
+    for part in dow.split(','):
+        if '-' in part:
+            start, end = part.split('-', 1)
+            result.append(f"{(int(start) + 6) % 7}-{(int(end) + 6) % 7}")
+        else:
+            result.append(str((int(part) + 6) % 7))
+    return ','.join(result)
+
+
 def _rebuild_schedules():
     """Register all enabled schedules in APScheduler."""
     for job in scheduler.get_jobs():
@@ -181,12 +199,16 @@ def _rebuild_schedules():
                 continue
             
             minute, hour, day, month, dow = parts[0], parts[1], parts[2], parts[3], parts[4]
-            
+            # The UI stores day-of-week using standard Unix cron (Sun=0, Mon=1, ..., Sat=6).
+            # APScheduler's CronTrigger uses ISO 8601 (Mon=0, ..., Sat=5, Sun=6).
+            # Convert so the trigger fires on the correct day.
+            dow_aps = _convert_cron_dow(dow)
+
             trigger = CronTrigger(
                 minute=minute, hour=hour,
                 day=day,
                 month=month,
-                day_of_week=dow,
+                day_of_week=dow_aps,
             )
             scheduler.add_job(_scheduled_wake, trigger, args=[sched["device_id"]],
                               id=job_id, replace_existing=True)
